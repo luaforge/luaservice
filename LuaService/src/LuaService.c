@@ -29,3 +29,5 @@ int main(int argc, char *argv[]) {
 	puts("Placeholder for a real service framework to get CVS started.");
 	return EXIT_SUCCESS;
 }
+
+static const char sccsid[] = "$Revision: 1.2 $";
