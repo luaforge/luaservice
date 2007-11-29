@@ -1,0 +1,37 @@
+/*!
+\mainpage LuaService Overview
+
+This project provides a framework for building Windows Service applications 
+in Lua. A Windows Service is a special application that runs at system boot
+(or on demand) without an interactive user. One use case is to run Xavante 
+automatically.
+
+This project is hosted at LuaForge (http://www.luaforge.net/) as 
+http://luaforge.net/projects/luaservice/ where full source code, 
+documentation, a bug tracker, and so forth can be found.
+
+*/
+
+/*! \page tools Supporting Tools
+
+- Eclipse platform and IDE, and especially the Eclipse CDT:
+See http://www.eclipse.org, http://www.eclipse.org/cdt
+
+- Eclox, a Doxygen frontend plugin for Eclipse.
+Visit http://home.gna.org/eclox/
+This software is based on doxygen.
+http://www.doxygen.org/
+
+- LuaEclipse, an integrated development environment for the 
+Lua programming language. http://luaeclipse.luaforge.net/
+
+- The Lua programming language: http://www.lua.org/
+
+- CVS and CVSNT 
+
+- PuTTY, an SSH implementation for Windows:
+http://www.chiark.greenend.org.uk/~sgtatham/putty/
+
+- MinGW, minimalist GNU for Windows: http://www.mingw.org/ 
+
+*/
