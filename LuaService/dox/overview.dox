@@ -10,6 +10,10 @@ This project is hosted at LuaForge (http://www.luaforge.net/) as
 http://luaforge.net/projects/luaservice/ where full source code, 
 documentation, a bug tracker, and so forth can be found.
 
+- LuaService is open source and licensed under the MIT license as is Lua 
+itself. See \ref license for details. 
+- See \ref tools for some notes on the software tools used.
+
 */
 
 /*! \page tools Supporting Tools
@@ -46,7 +50,7 @@ http://www.microsoft.com/technet/sysinternals/
 
 /*! \page license License
 
-Copyright (c) 2007, Ross Berteig.
+Copyright (c) 2007, Ross Berteig and Cheshire Engineering Corp.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
