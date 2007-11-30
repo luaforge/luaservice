@@ -13,28 +13,55 @@ documentation, a bug tracker, and so forth can be found.
 - LuaService is open source and licensed under the MIT license as is Lua 
 itself. See \ref license for details. 
 - See \ref tools for some notes on the software tools used.
+- See \ref flow for discussion of the general event flow in a service.
 
 */
 
 /*! \page tools Supporting Tools
+
+Most of these tools aren't mandatory (well, aside from a compiler of some
+sort that does produce native Win32 binaries without too many wierd DLL 
+dependancies), but they make my life easier during lots of development 
+projects.
 
 - Eclipse platform and IDE, and especially the Eclipse CDT:
 See http://www.eclipse.org, http://www.eclipse.org/cdt
 
 - Eclox, a Doxygen frontend plugin for Eclipse.
 Visit http://home.gna.org/eclox/
-This software is based on doxygen.
-http://www.doxygen.org/
+
+- Doxygen, a documentation tool for C-like languages.
+Found at http://www.doxygen.org/
+
+- Graphviz Dot, a directed acyclic graph visualization tool used by 
+Doxygen to draw structure and relationship figures. This is a great 
+tool for visualizing arbitrary complex network diagrams since it works
+from a natural text format describing the nodes and connecting arcs to 
+produce neatly drawn figures. Find it at http://www.graphviz.org/
+
+- MSCGen, a Message Sequence Chart generator that integrates well with
+Doxygen. Find it at http://www.mcternan.me.uk/mscgen/ and put it in your 
+path so that the \@msc and \@endmsc directives work.
 
 - LuaEclipse, an integrated development environment for the 
 Lua programming language. http://luaeclipse.luaforge.net/
 
 - The Lua programming language: http://www.lua.org/
 
-- CVS and CVSNT 
+- CVS (http://www.nongnu.org/cvs/) and CVSNT (http://www.cvsnt.org/)
+The latter is more useful on Windows machines, but beware of its 
+insidiously useful improvements over real CVS, like the cvs ls command
+and the cvs status -qq command. Once you get used to status having
+the -qq option as a quick and dirty way to find out what is different
+in your sandbox, it is really difficult to go back to the real thing.
+Eclipse's native CVS browsing helps there, however.
 
 - PuTTY, an SSH implementation for Windows:
 http://www.chiark.greenend.org.uk/~sgtatham/putty/
+
+- Diceware at http://www.diceware.org/ for a good treatment of proper pass phrase
+generation and management. Look here if you want to be seriously paranoid
+about private key safety.
 
 - MinGW, minimalist GNU for Windows: http://www.mingw.org/ 
 
@@ -69,5 +96,42 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+*/
+
+
+/*! \page flow Event Flow Overview
+
+\msc
+  a [label="CMD"],
+  b [label="Control"],
+  c [label="SCM"],
+  d1 [label="Service T1" ],
+  d2 [label="Service T2" ];
+  
+  a=>b [label="main()"];
+     b=>c [label="OpenService()" ];
+     b<<c [label="HANDLE"];
+     b=>c [label="StartService()" ];
+        c=>d1 [label="main()" ];
+           d1=>c [label="StartServiceCtrlDispatcher()"];
+        c=>    d2 [label="ServiceMain()"];
+        c<<=   d2 [label="RegisterServiceCtrlHandler"];
+        c<<=   d2 [label="SERVICE_START_PENDING"];
+               d2=>>d2 [label="service initialization"];
+        c<<=   d2 [label="SERVICE_RUNNING"];
+     b<<c ;
+  a<<b;
+  ... [label="time passes"];
+               d2=>>d2 [label="service processing"];
+        c=>>d1 [label="SERVICE_CONTROL_XXX"];
+        c<<=d1 [label="SetServiceStatus"];
+  ...;
+        c<<d2 [label="ServiceMain returns"];
+  ...;
+        c=>>d1 [label="SERVICE_CONTROL_STOP"];
+        c<<=d1 [label="SetServiceStatus"];
+        c<<d1 [label="main returns"];
+\endmsc
 
 */
