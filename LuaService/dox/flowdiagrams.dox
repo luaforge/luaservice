@@ -1,0 +1,231 @@
+
+
+/*! \page flow Event Flow Overview
+
+\section flowKey The Key Entities
+
+\subsection ssCmd CMD
+The command prompt or other interactive program such 
+as the computer manager.
+
+\subsection ssController Controller
+A generic service control program, which could be a separate
+utility such as the Services snap-in to Computer Manager, a
+developer tool such as SC.EXE or the Service Explorer in Visual 
+Studio 2005, or even a special mode of the same executable that
+acts as the service to be controlled.
+
+\subsection ssSCM Service Control Manager
+This is a Windows system component that is responsible for starting,
+managing, and stopping all service applications.
+
+\subsection ssSvc Service Application Threads
+A running service consists of at least two threads. The first is 
+created normally when the system starts the process, and is used to
+execute the main() function, and subsequently to execute the request
+callback function (i.e. the LuaServiceCtrlHandler() function) that 
+handles all service control requests.
+
+The other threads include a worker thread for each service provided 
+by the application (only one in LuaService) that is started by a
+successful call to StartServiceCtrlDispatcher(). That thread is
+responsible for per-service initialization, and any ongoing work
+the service is designed to do. Some kinds of services can allow this
+thread to exit once initialization is complete. Others may need 
+additional worker threads which should be created during initialization
+and carefully managed to avoid leakage of allocated resources and 
+misunderstandings about the overall state of the service by the \ref ssSCM.
+
+
+\section svcStart Starting a Service
+
+The following figure shows the chain of events triggered by a user 
+starting a generic service through a service control program.
+
+\msc
+  a [label="CMD", URL="\ref ssCmd"],
+  b [label="Controler", URL="\ref ssController"],
+  c [label="SCM", URL="\ref ssSCM"],
+  d1 [label="Thread 1", URL="\ref ssSvc"],
+  d2 [label="Thread 2", URL="\ref ssSvc" ];
+  
+  a=>b [label="main()"];
+     b=>c [label="OpenService()" ];
+     b<<c [label="HANDLE"];
+     b=>c [label="StartService()" ];
+        c=>d1 [label="main()" ];
+           d1=>c [label="StartServiceCtrlDispatcher()"];
+        c=>    d2 [label="ServiceMain()"];
+        c<<=   d2 [label="RegisterServiceCtrlHandler"];
+        c<<=   d2 [label="SERVICE_START_PENDING"];
+     b<<c ;
+               d2=>>d2 [label="service initialization"];
+        c<<=   d2 [label="SERVICE_RUNNING"];
+     b=>c [label="ControlService()" ];
+     b<<c ;
+  a<<b;
+  ... [label="time passes"];
+               d2=>>d2 [label="service processing"];
+               
+\endmsc
+
+-# The user launches some \ref ssController program.
+-# The controller retrieves a handle to the service by 
+   exchanging its name for the handle from the \ref ssSCM.
+-# The controller passes the handle to the SCM via a call 
+   to StartService().
+-# The SCM confirms that the service is not running and 
+   needs to start. It discovers from the service database 
+   (implemented in the registry) the executable file and 
+   command line arguments set when the service was installed.
+-# The SCM launches the service application. Its main() 
+   function starts, and nearly immediately (there is a time
+   limit of 30 seconds before the SCM abandons the service as
+   broken beyond repair) it calls StartServiceCtrlDispatcher()
+   to register the service's name and ServiceMain() entry 
+   point. If this application provides multiple services, they
+   are all registered at the same time, and each gets its own
+   thread in which its own ServiceMain() is executed.
+-# The SCM starts a thread for each ServiceMain().
+-# ServiceMain() calls RegisterServiceCtrlHandler() to identify
+   the callback function used to control that service.
+-# ServiceMain() calls SetServiceStatus() to promise that the
+   service is starting (SERVICE_START_PENDING) and to hint about
+   the time required for startup.
+-# ServiceMain() does any required service initialization. If the
+   initialization is lengthy, it may be required to make additional
+   calls to SetServiceStatus() to reassure the SCM that it is 
+   making progress.   
+-# If all went well, ServiceMain() calls SetServiceStatus() to 
+   announce that the service is started (SERVICE_RUNNING). Otherwise,
+   it will announce SERVICE_STOPPED and provide the failure status 
+   codes that the SCM will include in a system event log entry.
+-# The controller's call to StartService() returns at any point after
+   the SCM has tried to launch the service application. The controller 
+   can optionally use calls to ControlService() with the request 
+   SERVICE_CONTROL_INTERROGATE to monitor the startup progress.
+-# The ServiceMain() thread can act as the service's worker thread, 
+   interacting with the registered control handler callback function
+   which will be called on main()'s thread. This interaction is 
+   described in the section \ref svcControl.
+
+\section svcControl Controlling a Service
+
+The following figure shows the chain of events triggered by a user 
+or the system sending control requests or other notifications to a 
+running generic service. A user sends requests through a service 
+control program. The system acts like a service control program to
+send certain notifications such as network reconfiguration events, 
+device removal, and system shutdown.  In the following figure, the
+controller is either a program acting for the user or the system 
+itself, and the distinction is unimportant.
+
+\msc
+  b [label="Controler", URL="\ref ssController"],
+  c [label="SCM", URL="\ref ssSCM"],
+  d1 [label="Thread 1", URL="\ref ssSvc"],
+  d2 [label="Thread 2", URL="\ref ssSvc" ];
+ 
+               d2=>>d2 [label="service processing"];
+          d1<<=d2 [label="update status"];
+  ...;
+     b=>c [label="ControlService()" ];
+        c=>>d1 [label="SERVICE_CONTROL_XXX"];
+            d1=>>d2 [label="signal action"];
+            d1<<=d2 [label="update status"];
+        c<<=d1 [label="SetServiceStatus"];
+     b<<c;
+\endmsc
+
+-# The running service probably has a ServiceMain() thread
+   and may have additional threads that are doing whatever it
+   is that this service does. 
+-# As the service's status changes, it is passed to the main()
+   thread for immediate use by an INTERROGATE control request.
+-# The \ref ssController has a handle for the service that it 
+   got from the \ref ssSCM earlier. It sends a control request 
+   to the service via the SCM by calling ControlService().
+-# Assuming that the service is thought to be running, the SCM 
+   passes the control message by calling the registered control 
+   callback function for the service.
+-# The callback (which executes in the service's main() thread)
+   takes whatever action is required by the control message. 
+   Controls that will take a long time to execute should return
+   back an appropriate XXX_PENDING response in a timely fashion 
+   and expect that the controller (via the SCM) will monitor its
+   progress with additional INTERROGATE control messages.
+-# Acting on the control likely requires that a signal be passed
+   to the ServiceMain() thread and/or any other worker threads
+   involved in the service's implementation.
+-# The services current status is returned to the SCM by calling
+   SetServiceStatus().
+-# The SCM returns the status to the controller.
+
+\section svcStopping Stopping a Service
+
+Stopping a running service is a special case of \ref svcControl.
+
+\msc
+  b [label="Controler", URL="\ref ssController"],
+  c [label="SCM", URL="\ref ssSCM"],
+  d1 [label="Thread 1", URL="\ref ssSvc"],
+  d2 [label="Thread 2", URL="\ref ssSvc" ];
+ 
+               d2=>>d2 [label="service processing"];
+          d1<<=d2 [label="update status"];
+  ...;
+     b=>c [label="ControlService()" ];
+        c=>>d1 [label="SERVICE_CONTROL_STOP"];
+            d1=>>d2 [label="signal action"];
+            d1<<=d2 [label="update status"];
+        c<<      d2 [label="ServiceMain returns"];
+        c<<=d1 [label="SetServiceStatus"];
+        c<<d1 [label="main returns"];
+     b<<c;
+\endmsc
+
+-# The running service probably has a ServiceMain() thread
+   and may have additional threads that are doing whatever it
+   is that this service does. 
+-# As the service's status changes, it is passed to the main()
+   thread for immediate use by an INTERROGATE control request.
+-# The \ref ssController has a handle for the service that it 
+   got from the \ref ssSCM earlier. It sends a STOP control 
+   request to the service via the SCM by calling ControlService().
+-# Assuming that the service is thought to be running, the SCM 
+   passes the control message by calling the registered control 
+   callback function for the service.
+-# The callback (which executes in the service's main() thread)
+   takes whatever action is required by the control message. 
+   To STOP the service, it must ask all worker threads belonging
+   to the service to stop any pending work, release any resources,
+   and exit. The ServiceMain() thread must exit by returning from
+   ServiceMain() because there are resources held by that thread
+   that will not be properly released if it ends by any other 
+   means.
+-# The service cannot stop if other services are dependant on it.
+   Handling this case requires the controller to ask the dependant
+   services to stop, waiting for that to complete, and then asking
+   the target service to stop which should then be possible. That 
+   sequence is not shown here.
+-# The service can (but should not) ignore the STOP request by 
+   returning NO_ERROR from the handler function without actually 
+   stopping. While allowed, this seems like a bad idea.
+-# If the service needs extra time to stop, for example because it
+   must wait on several worker threads to safely release their
+   resources, it can return STOP_PENDING along with a timing hint 
+   in a timely fashion and expect that the controller (via the SCM)
+   will monitor its progress with additional INTERROGATE control 
+   messages.
+-# Once all associated resources and threads are released, it makes
+   its status STOPPED and informs the SCM with a call to 
+   SetServiceStatus(). 
+-# Assuming that all the services hosted in this service application
+   are now STOPPED, the main() thread exits by returning from main() 
+   just like any normal process. If it were to return from main() 
+   before its worker threads ended, they would be killed without a
+   chance to clean up and release any resources they hold; which is
+   not recommended.
+-# The SCM returns the status to the controller.
+
+*/

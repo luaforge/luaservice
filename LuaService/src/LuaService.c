@@ -5,7 +5,7 @@
  * \author Ross Berteig
  * \author Cheshire Engineering Corp.
  * 
- * Copyright © 2007, Ross Berteig, Cheshire Engineering Corp.
+ * Copyright (c) 2007, Ross Berteig, Cheshire Engineering Corp.
  */
 
 #include <stdio.h>
