@@ -1,0 +1,37 @@
+/*! \page luamodel Lua Usage Model
+
+The framework code provides the basic structure of a service, especially 
+most of the interface between Windows and a service. It supports all of the
+interaction with the \ref ssSCM needed to start and stop the service.
+
+The framework assumes that the service's name is fixed at compile time. This 
+simplifies some implementation questions at the cost of easily supporting more 
+than one service in a single Windows installation built on this framework 
+without recompilation. 
+
+The framework assumes that it will be home to only one service. This simplifies 
+implementation details related to handling more than one service hosted in a
+single process, especially with respect to service lifetimes as opposed to process
+lifetime.
+
+The framework will initialize a single Lua state during service initialization
+in the worker thread, and will only use that state from the worker thread. The
+Lua state will contain a table reflecting the state of the service, and providing
+the means for the worker code to indicate its status and progress.
+
+Functions available from Lua will allow the worker to signal status updates to 
+the SCM. Support will also be provided for Windows API calls handy when debugging
+a service, such as OutputDebugString().
+
+A volatile int global will be readable from the worker, and used to signal that 
+the main thread is asking for the worker to shut down. If a shutdown is requested,
+the main thread will wait a few seconds for the worker to notice and obey, but 
+unless the worker switches to STOP_PENDING in a timely fashion, it will stop 
+the service and exit the service program more forcefully.
+
+There should be no real issue with the worker using require() to load modules
+that provide other functionality. A means will be demonstrated for modules to 
+be statically linked to the framework but not loaded into Lua until requested.
+
+
+*/

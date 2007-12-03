@@ -44,7 +44,7 @@ starting a generic service through a service control program.
 
 \msc
   a [label="CMD", URL="\ref ssCmd"],
-  b [label="Controler", URL="\ref ssController"],
+  b [label="Controller", URL="\ref ssController"],
   c [label="SCM", URL="\ref ssSCM"],
   d1 [label="Thread 1", URL="\ref ssSvc"],
   d2 [label="Thread 2", URL="\ref ssSvc" ];
@@ -121,7 +121,7 @@ controller is either a program acting for the user or the system
 itself, and the distinction is unimportant.
 
 \msc
-  b [label="Controler", URL="\ref ssController"],
+  b [label="Controller", URL="\ref ssController"],
   c [label="SCM", URL="\ref ssSCM"],
   d1 [label="Thread 1", URL="\ref ssSvc"],
   d2 [label="Thread 2", URL="\ref ssSvc" ];
@@ -166,7 +166,7 @@ itself, and the distinction is unimportant.
 Stopping a running service is a special case of \ref svcControl.
 
 \msc
-  b [label="Controler", URL="\ref ssController"],
+  b [label="Controller", URL="\ref ssController"],
   c [label="SCM", URL="\ref ssSCM"],
   d1 [label="Thread 1", URL="\ref ssSvc"],
   d2 [label="Thread 2", URL="\ref ssSvc" ];
