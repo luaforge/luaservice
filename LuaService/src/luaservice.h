@@ -6,6 +6,9 @@
 #define LUASERVICE_H_
 
 extern void LuaWorkerThread(void);
+extern void SvcDebugTrace(LPSTR fmt, DWORD Status);
 
+extern int SvcDebugTraceLevel;
+extern char *ServiceName;
 
 #endif /*LUASERVICE_H_*/

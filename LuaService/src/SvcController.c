@@ -2,11 +2,10 @@
 #include <process.h> 
 #include <stdio.h>
 
+#include "luaservice.h"
+
 /* Glboals for communication with real service implementation */
-/* extern "C" { */
-	extern char *ServiceName;
 	extern void threadMain(void);
-/* }; */
 
 static struct ErrEntry {
 	int code;
@@ -46,16 +45,6 @@ BOOL		pauseService = FALSE;			// Flags holding current state of service
 BOOL		runningService = FALSE;			//
 SERVICE_STATUS_HANDLE serviceStatusHandle;	//
 
-// DWORD	WINAPI ServiceThread( LPDWORD lParam);
-unsigned WINAPI ServiceThread(LPVOID lParam);
-BOOL	InitService();
-BOOL	SendStatusToSCM(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwServiceSpecificExitCode, DWORD dwCheckPoint, DWORD dwWaitHint);
-void	ResumeService();
-void	PauseService();
-void	StopService();
-void	terminate(DWORD error);
-void	ServiceCtrlHandler(DWORD controlCode);
-void	ServiceMain(DWORD argc, LPTSTR *argv);
 void	ErrorHandler(char *s, int err);
 void	GetStatus(SC_HANDLE service);
 void	ShowUsage();
@@ -69,6 +58,16 @@ int	ServiceRun();
 int	ServiceControl(char* CONTROL);
 
 #if 0
+// DWORD	WINAPI ServiceThread( LPDWORD lParam);
+unsigned WINAPI ServiceThread(LPVOID lParam);
+BOOL	InitService();
+BOOL	SendStatusToSCM(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwServiceSpecificExitCode, DWORD dwCheckPoint, DWORD dwWaitHint);
+void	ResumeService();
+void	PauseService();
+void	StopService();
+void	terminate(DWORD error);
+void	ServiceCtrlHandler(DWORD controlCode);
+void	ServiceMain(DWORD argc, LPTSTR *argv);
 int main(int argc, char *argv[])
 {
 	SERVICE_TABLE_ENTRY serviceTable[] =
@@ -200,7 +199,6 @@ void ServiceMain(DWORD argc, LPTSTR *argv)
 
 	terminate(0);
 }
-#endif
 
 #ifdef NO_CRT_IN_THREAD
 DWORD WINAPI ServiceThread(LPDWORD lParam)
@@ -246,6 +244,7 @@ BOOL InitService()
 		return TRUE;
 	}
 }
+
 
 //resumes paused service
 void ResumeService()
@@ -395,6 +394,7 @@ void terminate(DWORD error)
 	if (threadHandle)
 		CloseHandle(threadHandle);
 }
+#endif
 
 	
 void ErrorHandler(char *s, int err)
