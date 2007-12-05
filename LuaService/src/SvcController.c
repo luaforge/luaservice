@@ -36,7 +36,6 @@ const int nErrList = sizeof(ErrList) / sizeof(ErrList[0]);
 
 //// Global /////////////////////////////////////////////////////////
 FILE*		pLog;							
-char*		ServiceName = "TstSvc";			// Name of the service
 HANDLE		terminateEvent = NULL;			// Event used to hold ServerMain from completing
 											// Handle used to communicate status info with 
 											// the SCM. Created by RegisterServiceCtrlHandler

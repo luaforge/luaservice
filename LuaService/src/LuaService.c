@@ -48,7 +48,7 @@ SERVICE_STATUS_HANDLE   LuaServiceStatusHandle;
  * 
  * Values range from zero (no tracing) and up.
  */
-int SvcDebugTraceLevel = 0;
+int SvcDebugTraceLevel = 5;
 
 /** Output a debug string.
  * 
@@ -241,10 +241,19 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
  
     /// \todo Do some work in this thread, say by running a Lua file.
     
+#if 0
     // This is where the service does its work. This sample simply falls 
     // out without accomplishing anything.
     SvcDebugTrace("Sleeping on the job for 5 seconds\n",0); 
     Sleep(5000);
+#else
+    { 
+    	void *wk;
+    	wk = LuaWorkerRun(NULL);
+    	LuaWorkerCleanup(wk);
+    }
+#endif
+    
     SvcDebugTrace("Returning to the Main Thread \n",0); 
     return; 
 }

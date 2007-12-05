@@ -4,34 +4,62 @@ The framework code provides the basic structure of a service, especially
 most of the interface between Windows and a service. It supports all of the
 interaction with the \ref ssSCM needed to start and stop the service.
 
-The framework assumes that the service's name is fixed at compile time. This 
-simplifies some implementation questions at the cost of easily supporting more 
-than one service in a single Windows installation built on this framework 
-without recompilation. 
+\section svcConf LuaService Configuration
+
+An installed LuaService will consist of a folder that holds the framework 
+executable, and at least two Lua source files.
+
+The first Lua file must be named SvcConf.lua, and contains a Lua script 
+that returns a single table value. The Lua state it runs in should not
+be expected to survive into the actual service thread, so although 
+SvcConf.lua can modify the global environment, it can't expect that
+those changes will have any effect.
+
+The table returned by SvcConf.lua must define a service name, which will 
+be used to identify the service to the SCM by both a service controller 
+and the service application. Defining the name at run time allows the
+same service executable to be used to host any number of distinct services
+written in Lua on the same Windows machine without recompilation. Note, 
+however, that each service is still hosted by its own service application.
+
+\section svcRuntime LuaService Runtime
 
 The framework assumes that it will be home to only one service. This simplifies 
 implementation details related to handling more than one service hosted in a
 single process, especially with respect to service lifetimes as opposed to process
-lifetime.
+lifetime. A future version could consider the implications of supporting multiple 
+Lua services hosted in a single application. One natural mechanism would be to
+host separate Lua contexts in each service thread.
 
 The framework will initialize a single Lua state during service initialization
 in the worker thread, and will only use that state from the worker thread. The
-Lua state will contain a table reflecting the state of the service, and providing
-the means for the worker code to indicate its status and progress.
+Lua state will contain a global object acting as a proxy for the state of the 
+service, and providing the means for the worker code to indicate its status 
+and progress to the main thread and the SCM.
 
 Functions available from Lua will allow the worker to signal status updates to 
-the SCM. Support will also be provided for Windows API calls handy when debugging
-a service, such as OutputDebugString().
+the SCM. Support will also be provided for Windows API calls handy when 
+debugging a service, such as OutputDebugString(). Support for other Windows
+API routines should be provided by modules outside the framework proper.
 
-A volatile int global will be readable from the worker, and used to signal that 
-the main thread is asking for the worker to shut down. If a shutdown is requested,
-the main thread will wait a few seconds for the worker to notice and obey, but 
-unless the worker switches to STOP_PENDING in a timely fashion, it will stop 
-the service and exit the service program more forcefully.
+The worker thread will have a means of polling to discover if and when a
+shutdown request has been delivered. The implementation of that mechanism 
+must take thread safety into account because the service request handler
+runs in the context of the main thread and therefore does not have access
+to the worker thread's Lua state.
+
+If a shutdown is requested, the main thread will wait a few seconds 
+for the worker to notice and obey, but unless the worker switches to 
+STOP_PENDING in a timely fashion, it will stop the worker and exit 
+the service program more forcefully.
 
 There should be no real issue with the worker using require() to load modules
 that provide other functionality. A means will be demonstrated for modules to 
 be statically linked to the framework but not loaded into Lua until requested.
-
+The package.path and package.cpath strings will be configured to look for 
+modules only in the LuaService installation folder and in subfolders there. 
+It will explicitly ignore environment variables and the usual default values
+of the path strings to avoid opening an inadvertant security hole by allowing
+a module to be loaded from a less trustworthy location.
 
 */

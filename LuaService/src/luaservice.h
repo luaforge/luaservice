@@ -7,8 +7,10 @@
 
 extern void LuaWorkerThread(void);
 extern void SvcDebugTrace(LPSTR fmt, DWORD Status);
+extern void *LuaWorkerRun(void *pv);
+extern void LuaWorkerCleanup(void *pv);
 
 extern int SvcDebugTraceLevel;
-extern char *ServiceName;
+extern const char *ServiceName;
 
 #endif /*LUASERVICE_H_*/
