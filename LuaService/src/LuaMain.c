@@ -49,17 +49,16 @@ static int dbgPrint(lua_State *L)
 	lua_getglobal(L, "tostring");
 	luaL_buffinit(L, &b);
 	for (i=1; i<=n; i++) {
-		lua_pushvalue(L, n+1); /* function to be called */
-		lua_pushvalue(L, i);  /* value to print */
-		lua_call(L, 1, 1);
-		luaL_addvalue(&b);
+		lua_pushvalue(L, n+1); /* b tostring */
+		lua_pushvalue(L, i);   /* b tostring argi */
+		lua_call(L, 1, 1);     /* b tostring(argi) */
+		luaL_addvalue(&b);     /* b */
 		if (i<n)
 			luaL_addchar(&b, '\t');
-		lua_pop(L, 1);
-		/* pop result */
 	}
 	luaL_pushresult(&b);
 	OutputDebugStringA(lua_tostring(L, -1)); 		//fputs(s, stdout);
+	lua_pop(L,1);
 	return 0;
 }
 
@@ -93,7 +92,7 @@ static void initGlobals(lua_State *L)
 	char *cp;
 	
 	lua_newtable(L);
-	GetModuleFileName(GetModuleHandle(NULL), szPath+1, MAX_PATH);
+	GetModuleFileName(GetModuleHandle(NULL), szPath, MAX_PATH);
 	lua_pushstring(L,szPath);
 	lua_setfield(L,-2,"filename");
 	cp = strrchr(szPath, '\\');
@@ -118,7 +117,7 @@ static void initGlobals(lua_State *L)
  * then do something. This function assumes that the caller is living 
  * within the constraints of lua_cpcall(), meaning that it is passed 
  * exactly one argument on the Lua stack which is a light userdata 
- * wrapping an opaque pointer.
+ * wrapping an opaque pointer, and it isn't allowed to return anything.
  * 
  * That pointer must be either NULL or a pointer to a C string naming the
  * script file or code fragment to load and execute in the Lua context.
@@ -133,6 +132,7 @@ static int pmain(lua_State *L)
 	char *cp;
 	char *arg;
 	int status;
+	int n;
 
 	arg = (char *)lua_touserdata(L,-1);
 	lua_getglobal(L, "service");
@@ -142,6 +142,7 @@ static int pmain(lua_State *L)
 		initGlobals(L);
 		lua_gc(L, LUA_GCRESTART, 0);
 	}
+	lua_pop(L,2); /* don't need the light userdata or service objects */
 	GetModuleFileName(GetModuleHandle(NULL), szPath, MAX_PATH);
 	cp = strrchr(szPath, '\\');
 	if (cp) {
@@ -154,36 +155,46 @@ static int pmain(lua_State *L)
 	}
 	OutputDebugStringA(szPath); 
 #ifdef NO_DEBUG_TRACEBACK
+	n = lua_gettop(L);
 	status = luaL_dofile(L,szPath);
 #else
 	lua_getglobal(L,"debug");	// debug
 	lua_getfield(L,-1,"traceback"); // debug debug.traceback
 	lua_remove(L,-2);		// debug.traceback
+	n = lua_gettop(L);
 	status = luaL_loadfile(L,szPath) || lua_pcall(L,0,LUA_MULTRET,-2);
 #endif
 	if (status) { 
 		return luaL_error(L,"%s\n",lua_tostring(L,-1));
 	}
-	return lua_gettop(L)-2;
+	SvcDebugTrace("Stack top before return: %d", lua_gettop(L));
+	return lua_gettop(L)-n;
 }
 
-
+/** Run a Lua script.
+ * \todo Everything Lua.
+ * \param pv An opaque handle returned by a previous call to LuaWorkerRun().
+ * \returns An opaque handle identifying the created Lua state.
+ */
 void *LuaWorkerRun(void *pv)
 {
 	int status;
 	lua_State *L=(lua_State*)pv;
 	
 	if (!pv)
-		L = lua_open();
-	//lua_register(L,"print",print);
+		L = lua_open(); 
 	status = lua_cpcall(L, &pmain, "test.lua");
 	if (status) {
 		SvcDebugTrace("Script cpcall status %d", status);
 		SvcDebugTrace((char *)lua_tostring(L,-1),0);
+	} else {
+		SvcDebugTrace("Script succeeded and returned %d items", lua_gettop(L));
 	}
 	return (void *)L;
 }
 
+/**
+ */
 void LuaWorkerCleanup(void *pv)
 {
 	lua_State *L=(lua_State*)pv;
