@@ -5,12 +5,17 @@
 #ifndef LUASERVICE_H_
 #define LUASERVICE_H_
 
-extern void LuaWorkerThread(void);
-extern void SvcDebugTrace(LPSTR fmt, DWORD Status);
-extern void *LuaWorkerRun(void *pv);
-extern void LuaWorkerCleanup(void *pv);
+// From LuaMain.c
+/** An opaque pointer to a Lua state. */
+typedef void *LUAHANDLE;
+extern LUAHANDLE LuaWorkerLoad(LUAHANDLE h, char *cmd);
+extern LUAHANDLE LuaWorkerRun(LUAHANDLE h);
+extern void LuaWorkerCleanup(LUAHANDLE h);
 
+// From LuaService.c
+extern void SvcDebugTrace(LPSTR fmt, DWORD Status);
 extern int SvcDebugTraceLevel;
 extern const char *ServiceName;
+extern volatile int ServiceStopping;
 
 #endif /*LUASERVICE_H_*/

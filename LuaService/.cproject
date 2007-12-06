@@ -357,8 +357,8 @@
 <inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.755114974" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 </tool>
 <tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.exe.release.167776621" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.exe.release">
-<option id="gnu.c.link.option.userobjs.297470714" superClass="gnu.c.link.option.userobjs" valueType="userObjs">
-<listOptionValue builtIn="false" value="&quot;\programs\tecgraf\lua5.1\lua5.1.lib&quot;"/>
+<option id="gnu.c.link.option.userobjs.297470714" name="Other objects" superClass="gnu.c.link.option.userobjs" valueType="userObjs">
+<listOptionValue builtIn="false" value="lua5.1.lib"/>
 </option>
 <inputType id="cdt.managedbuild.tool.gnu.c.linker.input.325330896" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 <additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>

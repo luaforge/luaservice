@@ -50,6 +50,9 @@ SERVICE_STATUS_HANDLE   LuaServiceStatusHandle;
  */
 int SvcDebugTraceLevel = 5;
 
+volatile int ServiceStopping = 0;
+
+
 /** Output a debug string.
  * 
  * The string is formatted and output only if SvcDebugTraceLevel is 
@@ -120,8 +123,10 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 #endif
 	case SERVICE_CONTROL_STOP:
 		/// \todo Do whatever it takes to stop here. 
+		SvcDebugTrace("Stopping Service\n", 0);
+		ServiceStopping = 1;
 		LuaServiceStatus.dwWin32ExitCode = 0;
-		LuaServiceStatus.dwCurrentState = SERVICE_STOPPED;
+		LuaServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
 		LuaServiceStatus.dwCheckPoint = 0;
 		LuaServiceStatus.dwWaitHint = 0;
 
@@ -129,6 +134,13 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 			status = GetLastError();
 			SvcDebugTrace("SetServiceStatus error %ld\n", status);
 		}
+		Sleep(4500);
+		LuaServiceStatus.dwCurrentState = SERVICE_STOPPED;
+		if (!SetServiceStatus(LuaServiceStatusHandle, &LuaServiceStatus)) {
+			status = GetLastError();
+			SvcDebugTrace("SetServiceStatus error %ld\n", status);
+		}
+		
 		SvcDebugTrace("Leaving Service\n", 0);
 		return;
 
@@ -150,15 +162,40 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 
 /** Stup initialization function.
  * 
- * Real initialization would go here, or somewhere like it.
+ * Initialize Lua state then load and compile our script.
  * 
- * \todo Initialize Lua state then load and compile our script.
+ * \todo Get the script name from a sensible algorithm?
+ * 
+ * \param argc Count of arguments passed to the service program by the SCM.
+ * \param argv Array of argument strings passed to the service program by the SCM.
+ * \param ph   Pointer to a LUAHANDLE that will be written with the handle 
+ *             of an initialized Lua state that has all globals loaded and 
+ *             the service's main script parsed and loaded.
+ * \param perror Pointer to a DWORD to fill with the Win32 error code that
+ *             relates to initialization failure, if initialization failed.
+ * 			   This value will be passed to the SCM for logging on failure.
+ * \returns    Zero on success, non-zero exit status on failure.
+ * 			   This value will be passed to the SCM for logging on failure.
  */
-DWORD LuaServiceInitialization(DWORD   argc, LPTSTR  *argv, 
-    DWORD *specificError) 
+DWORD LuaServiceInitialization(DWORD argc, LPTSTR *argv, 
+		LUAHANDLE *ph, DWORD *perror) 
 { 
-    SvcDebugTrace("Lua Service Initialization stub\n",0); 
-    return(0); 
+    SvcDebugTrace("Load LuaService script\n",0); 
+    *ph = LuaWorkerLoad(NULL, "test.lua");
+    //LuaWorkerSetArgs(argc, argv);
+    *perror = 0;
+    return 0; 
+}
+
+
+BOOL LuaServiceSetStatus(DWORD dwCurrentState, 
+		DWORD dwCheckPoint, 
+		DWORD dwWaitHint)
+{
+	LuaServiceStatus.dwCurrentState = dwCurrentState;
+    LuaServiceStatus.dwCheckPoint   = dwCheckPoint; 
+    LuaServiceStatus.dwWaitHint     = dwWaitHint; 
+    return SetServiceStatus (LuaServiceStatusHandle, &LuaServiceStatus); 
 }
 
 /** Service Main function.
@@ -181,8 +218,9 @@ DWORD LuaServiceInitialization(DWORD   argc, LPTSTR  *argv,
  */
 void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv) 
 { 
-	DWORD status; 
-    DWORD specificError; 
+	DWORD status = 0; 
+    DWORD specificError = 0; 
+	LUAHANDLE wk = 0;
 
     SvcDebugTrace("Entered LuaServiceMain\n",0); 
 
@@ -210,7 +248,9 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
     }
  
     // Initialization code goes here. 
-    status = LuaServiceInitialization(argc,argv, &specificError); 
+    LuaServiceSetStatus(SERVICE_START_PENDING, 0, 5000);
+    status = LuaServiceInitialization(argc, (char **)argv, &wk, &specificError);
+    LuaServiceSetStatus(SERVICE_START_PENDING, 1, 100);
  
     // Handle error condition 
     if (status != NO_ERROR) 
@@ -229,31 +269,23 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
     } 
  
     // Initialization complete - report running status. 
-    LuaServiceStatus.dwCurrentState       = SERVICE_RUNNING; 
-    LuaServiceStatus.dwCheckPoint         = 0; 
-    LuaServiceStatus.dwWaitHint           = 0; 
- 
-    if (!SetServiceStatus (LuaServiceStatusHandle, &LuaServiceStatus)) 
-    { 
+    if (!LuaServiceSetStatus(SERVICE_RUNNING, 0, 0)) { 
         status = GetLastError(); 
         SvcDebugTrace("SetServiceStatus error %ld\n",status); 
-    } 
+    }
  
-    /// \todo Do some work in this thread, say by running a Lua file.
-    
 #if 0
     // This is where the service does its work. This sample simply falls 
     // out without accomplishing anything.
     SvcDebugTrace("Sleeping on the job for 5 seconds\n",0); 
     Sleep(5000);
-#else
-    { 
-    	void *wk;
-    	wk = LuaWorkerRun(NULL);
-    	LuaWorkerCleanup(wk);
-    }
 #endif
+
+    // do the work of the service by running the loaded script.
+    wk = LuaWorkerRun(wk);
+    LuaWorkerCleanup(wk);
     
+    // we get here only if the script itself returned.
     SvcDebugTrace("Returning to the Main Thread \n",0); 
     return; 
 }
@@ -286,11 +318,15 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
  * \see ssSvc
  */
 int main(int argc, char *argv[]) {
+	LUAHANDLE lh;
 	SERVICE_TABLE_ENTRY DispatchTable[2]; // note room for terminating record.
 	memset(DispatchTable,0,sizeof(DispatchTable));
 	
 	SvcDebugTrace("Entered main\n", 0);
-
+	lh = LuaWorkerLoad(NULL, "init.lua");
+	lh = LuaWorkerRun(lh);
+	LuaWorkerCleanup(lh);
+	
 	DispatchTable[0].lpServiceName = (LPSTR)ServiceName;
 	DispatchTable[0].lpServiceProc = LuaServiceMain;
 	if (!StartServiceCtrlDispatcher(DispatchTable)) {
