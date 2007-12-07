@@ -8,6 +8,7 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+#include <assert.h>
 
 #include "luaservice.h"
 
@@ -101,6 +102,24 @@ static int dbgStopping(lua_State *L)
 	return 1;
 }
 
+
+/** Implement the Lua function tracelevel(level).
+ * 
+ * Control the verbosity of trace output to the debug console.
+ * 
+ * If level is passed, sets the trace level accordingly. Regardless,
+ * it returns the current trace level.
+ * 
+ * \param L Lua state context for the function.
+ * \returns The number of values on the Lua stack to be returned
+ * to the Lua caller.
+ */
+static int dbgTracelevel(lua_State *L)
+{
+	SvcDebugTraceLevel = luaL_optint(L,-1,SvcDebugTraceLevel);
+	lua_pushinteger(L,SvcDebugTraceLevel);
+	return 1;
+}
 
 /** Implement the Lua function GetCurrentConfiguration().
  * 
@@ -251,6 +270,7 @@ static const struct luaL_Reg dbgFunctions[] = {
 		{"sleep", dbgSleep },
 		{"print", dbgPrint },
 		{"stopping", dbgStopping },
+		{"tracelevel", dbgTracelevel },
 		{"GetCurrentDirectory", dbgGetCurrentDirectory},
 		{"GetCurrentConfiguration", dbgGetCurrentConfiguration},
 		{NULL, NULL},
@@ -385,6 +405,7 @@ static int pmain(lua_State *L)
 		lua_pushnil(L);
 		local_setreg(L,WORK_RESULTS);
 
+		lua_createtable(L, 5, 0);
 #ifdef NO_DEBUG_TRACEBACK
 		n = lua_gettop(L);
 		local_getreg(L,PENDING_WORK);
@@ -401,14 +422,78 @@ static int pmain(lua_State *L)
 		if (status) { 
 			return luaL_error(L,"%s\n",lua_tostring(L,-1));
 		}
-		lua_createtable(L, lua_gettop(L)-n, 0);
-		for (i=lua_gettop(L); i>n+1; --i)
-			lua_rawseti(L,n+1,i);
+		SvcDebugTrace("Pre-script top %d", n);
+		SvcDebugTrace("Post-script top %d", lua_gettop(L));
+		for (i=lua_gettop(L); i>n; --i) {
+			SvcDebugTrace("Saving item %d", i-n);
+			SvcDebugTrace(lua_typename(L, lua_type(L, -1)), 0);
+			//SvcDebugTrace(lua_tostring(L,-1), 0);
+			lua_rawseti(L,n,i-n);
+		}
 		local_setreg(L,WORK_RESULTS);
 		return 0;
 	}
 }
 
+/** Lua allocator function.
+ * 
+ * Borrowed verbatim from the Lua sources, found in lauxlib.c.
+ * 
+ * Needed to support a direct creation of a Lua state that cannot 
+ * refer in any way to stdio handles.
+ * 
+ * Manage a memory block. If \a nsize is non-zero, it will return a
+ * pointer to allocated memory that must be passed back here to be
+ * freed. If \a osize is non-zero, \a ptr must be non-null and the 
+ * block it points to will be either freed or reallocated depending
+ * on the value of \a nsize.
+ * 
+ * \note This is a good place to introduce memory performance hooks 
+ * for a Lua state in some future version.
+ * 
+ * \param ud	Opaque token provided when the Lua state was created.
+ * \param ptr	Pointer to any existing memory for this transaction.
+ * \param osize	Size of the existing memory block.
+ * \param nsize	Size of the memory block needed.
+ */
+static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+  (void)ud;
+  (void)osize;
+  if (nsize == 0) {
+    free(ptr);
+    return NULL;
+  }
+  else
+    return realloc(ptr, nsize);
+}
+
+/** The panic function for a Lua state.
+ * 
+ * This function is called as a last resort if an error is thrown
+ * in an unprotected Lua context. It has access to an error message
+ * on the top of the Lua stack, but should probably refrain from
+ * anything that could throw additional errors, say be attempting
+ * to allocate additional memory.
+ * 
+ * If it returns, Lua is going to call exit(EXIT_FAILURE). Since 
+ * this is almost certainly running in a thread other than the main
+ * thread and, worse, under the supervision of the \ref ssSCM that
+ * could result in the SCM becoming confused about the current state
+ * of the service. 
+ * 
+ * To prevent SCM confusion, this function simply calls ExitThread() 
+ * to kill the current thread without necessarily killing the whole
+ * process.
+ * 
+ * \todo Should panic() also tell the SCM SERVICE_STOPPED?
+ */
+static int panic (lua_State *L) {
+  (void)L;  /* to avoid warnings */
+  SvcDebugTrace("PANIC: unprotected error in call to Lua API...",0);
+  SvcDebugTrace(lua_tostring(L, -1), 0);
+  ExitThread(EXIT_FAILURE);
+  return 0;
+}
 
 /** Create a Lua state with a script loaded.
  * 
@@ -429,8 +514,11 @@ LUAHANDLE LuaWorkerLoad(LUAHANDLE h, char *cmd)
 	int status;
 	lua_State *L=(lua_State*)h;
 	
-	if (!h)
-		L = lua_open(); 
+	if (!h) {
+		  L = lua_newstate(l_alloc, NULL);
+		  assert(L);
+		  lua_atpanic(L, &panic);
+	}
 	status = lua_cpcall(L, &pmain, (void*)cmd);
 	if (status) {
 		SvcDebugTrace("Script cpcall status %d", status);
@@ -440,7 +528,6 @@ LUAHANDLE LuaWorkerLoad(LUAHANDLE h, char *cmd)
 	}
 	return (void *)L;
 }
-
 
 /** Run a pending Lua script.
  * 
@@ -469,7 +556,9 @@ LUAHANDLE LuaWorkerRun(LUAHANDLE h)
 	return (void *)L;
 }
 
-/**
+/** Clean up after the worker by closing the Lua state.
+ * 
+ * \param h An opaque handle returned by a previous call to LuaWorkerRun().
  */
 void LuaWorkerCleanup(LUAHANDLE h)
 {
@@ -477,3 +566,100 @@ void LuaWorkerCleanup(LUAHANDLE h)
 	if (h)
 		lua_close(L);
 }
+
+/** Get a cached worker result item as a string.
+ * 
+ * \note The string returned came from strdup(), and must be 
+ * freed by the caller.
+ * 
+ * \param h An opaque handle returned by a previous call to LuaWorkerRun().
+ * \param item The index of the result item to retrieve. 
+ * The first result is index 1, consistent with Lua counting.
+ * \returns The string value (from strdup()) or NULL if the item
+ * doesn't exist or can't be converted to a string.
+ */
+char *LuaResultString(LUAHANDLE h, int item)
+{
+	char *ret = NULL;
+	lua_State *L = (lua_State*)h;
+	if (!h) return NULL;
+	local_getreg(L,WORK_RESULTS);
+	lua_rawgeti(L,-1,item);
+	ret = (char *)lua_tostring(L,-1);
+	if (ret)
+		ret = strdup(ret);
+	lua_pop(L,2);
+	return ret;
+}
+
+
+/** Get a cached worker result item as an integer.
+ * 
+ * 
+ * \param h An opaque handle returned by a previous call to LuaWorkerRun().
+ * \param item The index of the result item to retrieve. 
+ * The first result is index 1, consistent with Lua counting.
+ * \returns The integer value or 0 if the item
+ * doesn't exist or can't be converted to a number.
+ */
+int LuaResultInt(LUAHANDLE h, int item)
+{
+	int ret = 0;
+	lua_State *L = (lua_State*)h;
+	if (!h) return 0;
+	local_getreg(L,WORK_RESULTS);
+	lua_rawgeti(L,-1,item);
+	ret = (int)lua_tointeger(L,-1);
+	lua_pop(L,2);
+	return ret;
+}
+
+/** Get a field of a cached worker result item as a string.
+ * 
+ * \note The string returned came from strdup(), and must be 
+ * freed by the caller.
+ * 
+ * \param h An opaque handle returned by a previous call to LuaWorkerRun().
+ * \param item The index of the result item to retrieve. 
+ * The first result is index 1, consistent with Lua counting.
+ * \param field The name of the field to retrieve.
+ * \returns The string value (from strdup()) or NULL if the 
+ * field or item doesn't exist or can't be converted to a string.
+ */
+char *LuaResultFieldString(LUAHANDLE h, int item, char *field)
+{
+	char *ret = NULL;
+	lua_State *L = (lua_State*)h;
+	if (!h) return NULL;
+	local_getreg(L,WORK_RESULTS);
+	lua_rawgeti(L,-1,item);
+	ret = (char *)lua_tostring(L,-1);
+	if (ret)
+		ret = strdup(ret);
+	lua_pop(L,2);
+	return ret;
+}
+
+
+/** Get a field of a cached worker result item as an integer.
+ * 
+ * 
+ * \param h An opaque handle returned by a previous call to LuaWorkerRun().
+ * \param item The index of the result item to retrieve. 
+ * The first result is index 1, consistent with Lua counting.
+ * \param field The name of the field to retrieve.
+ * \returns The integer value or 0 if the field or item
+ * doesn't exist or can't be converted to a number.
+ */
+int LuaResultFieldInt(LUAHANDLE h, int item, char *field)
+{
+	int ret = 0;
+	lua_State *L = (lua_State*)h;
+	if (!h) return 0;
+	local_getreg(L,WORK_RESULTS);
+	lua_rawgeti(L,-1,item);
+	ret = (int)lua_tointeger(L,-1);
+	lua_pop(L,2);
+	return ret;
+}
+

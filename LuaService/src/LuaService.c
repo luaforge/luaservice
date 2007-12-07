@@ -6,6 +6,19 @@
  * \author Cheshire Engineering Corp.
  * 
  * Copyright (c) 2007, Ross Berteig, Cheshire Engineering Corp.
+ * Licensed under the MIT license, see \ref license for the details.
+ * 
+ * \todo Supporting service PAUSE and CONTINUE control request will
+ * require some effort beyond the bare framework guarded by the 
+ * undefined macro LUASERVICE_CAN_PAUSE_CONTINUE. At minimum, 
+ * some mechanism must be provided for the Lua side to become
+ * aware of the request and actually pause; presumably an Event
+ * could be waited on to implement the pause, and signaled to 
+ * implement continue. However, since we assume that the Lua 
+ * interpreter itself is not built for threading, we don't have
+ * a good means to asynchronously notify the Lua code of the 
+ * pause request in the first place, which would imply that the
+ * Lua code is constantly polling.
  */
 
 #include <stdio.h>
@@ -34,11 +47,28 @@ const char *ServiceName = "LuaService";
  */
 SERVICE_STATUS          LuaServiceStatus; 
 
-/** Handle for the running service.
+/** Handle to the SCM for the running service to report status.
+ * 
+ * This is global because it is discovered by the worker thread,
+ * and needed by the thread in which the control request handler
+ * executes, which is apparently (but not particularly documented) 
+ * the main thread.
+ * 
  * \context 
  * Service main and worker threads
  */
 SERVICE_STATUS_HANDLE   LuaServiceStatusHandle; 
+
+/** Handle to the thread executing ServiceMain().
+ * 
+ * This will be initialized by ServiceMain() as a duplicate of
+ * the thread handle, for use in the main() thread so that it has
+ * a kernel object on which it can wait for the service thread 
+ * to have exited when stopping the service.
+ * 
+ * Since it was created as a duplicate, it must be closed.
+ */
+HANDLE ServiceWorkerThread;
 
 /** Trace level.
  * Controls the verbosity of the trace output. The level is tested
@@ -50,8 +80,20 @@ SERVICE_STATUS_HANDLE   LuaServiceStatusHandle;
  */
 int SvcDebugTraceLevel = 5;
 
+/** Service Stopping Flag.
+ * 
+ * Set in the service control request handler to indicate that 
+ * a STOP request has been received and that the SCM is being
+ * informed that the service is now SERVICE_STOP_PENDING.
+ * 
+ * About 25 seconds after setting this flag, the service will
+ * forcefully die with or without cooperation from the worker
+ * thread.
+ * 
+ * The worker can test this flag from Lua by calling the 
+ * function service.stopping().
+ */
 volatile int ServiceStopping = 0;
-
 
 /** Output a debug string.
  * 
@@ -73,7 +115,7 @@ volatile int ServiceStopping = 0;
  * 				a single DWORD value.
  * \param dw A DWORD value to substitute in the message.
  */
-void SvcDebugTrace(LPSTR fmt, DWORD dw) 
+void SvcDebugTrace(LPCSTR fmt, DWORD dw) 
 { 
    char Buffer[1024]; 
    char *cp = Buffer;
@@ -84,7 +126,10 @@ void SvcDebugTrace(LPSTR fmt, DWORD dw)
 	   cp += sprintf(Buffer, "[%s] ", ServiceName);
    else if (SvcDebugTraceLevel >= 3)
 	   cp += sprintf(Buffer, "[%s:%ld/%ld] ", ServiceName, GetCurrentProcessId(), GetCurrentThreadId());
-   if (strlen(fmt) < sizeof(Buffer) - 30) { 
+   if (fmt == NULL) {
+	   strcpy(cp,"-nil-");
+	   OutputDebugStringA(Buffer); 
+   } else if (strlen(fmt) < sizeof(Buffer) - 30) { 
       sprintf(cp, fmt, dw); 
       OutputDebugStringA(Buffer); 
    }
@@ -128,13 +173,17 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 		LuaServiceStatus.dwWin32ExitCode = 0;
 		LuaServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
 		LuaServiceStatus.dwCheckPoint = 0;
-		LuaServiceStatus.dwWaitHint = 0;
+		LuaServiceStatus.dwWaitHint = 25250;
 
 		if (!SetServiceStatus(LuaServiceStatusHandle, &LuaServiceStatus)) {
 			status = GetLastError();
 			SvcDebugTrace("SetServiceStatus error %ld\n", status);
 		}
-		Sleep(4500);
+		if (ServiceWorkerThread != NULL) {
+			SvcDebugTrace("Waiting 25 s for worker to stop\n", 0);
+			WaitForSingleObject(ServiceWorkerThread, 25000);
+			CloseHandle(ServiceWorkerThread);
+		}
 		LuaServiceStatus.dwCurrentState = SERVICE_STOPPED;
 		if (!SetServiceStatus(LuaServiceStatusHandle, &LuaServiceStatus)) {
 			status = GetLastError();
@@ -180,11 +229,23 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 DWORD LuaServiceInitialization(DWORD argc, LPTSTR *argv, 
 		LUAHANDLE *ph, DWORD *perror) 
 { 
+    if (!DuplicateHandle(
+    		GetCurrentProcess(),  
+    		GetCurrentThread(),		
+    		GetCurrentProcess(),
+    		&ServiceWorkerThread,
+    		0,
+    		FALSE,
+    		DUPLICATE_SAME_ACCESS)) {
+    	*perror = GetLastError();
+    	*ph = NULL;
+    	return TRUE;
+    }
     SvcDebugTrace("Load LuaService script\n",0); 
     *ph = LuaWorkerLoad(NULL, "test.lua");
     //LuaWorkerSetArgs(argc, argv);
     *perror = 0;
-    return 0; 
+    return NO_ERROR; 
 }
 
 
@@ -250,11 +311,8 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
     // Initialization code goes here. 
     LuaServiceSetStatus(SERVICE_START_PENDING, 0, 5000);
     status = LuaServiceInitialization(argc, (char **)argv, &wk, &specificError);
-    LuaServiceSetStatus(SERVICE_START_PENDING, 1, 100);
- 
-    // Handle error condition 
-    if (status != NO_ERROR) 
-    { 
+    if (status != NO_ERROR) { 
+        // Handle error condition 
         LuaServiceStatus.dwCurrentState       = SERVICE_STOPPED; 
         LuaServiceStatus.dwCheckPoint         = 0; 
         LuaServiceStatus.dwWaitHint           = 0; 
@@ -274,13 +332,6 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
         SvcDebugTrace("SetServiceStatus error %ld\n",status); 
     }
  
-#if 0
-    // This is where the service does its work. This sample simply falls 
-    // out without accomplishing anything.
-    SvcDebugTrace("Sleeping on the job for 5 seconds\n",0); 
-    Sleep(5000);
-#endif
-
     // do the work of the service by running the loaded script.
     wk = LuaWorkerRun(wk);
     LuaWorkerCleanup(wk);
@@ -325,6 +376,13 @@ int main(int argc, char *argv[]) {
 	SvcDebugTrace("Entered main\n", 0);
 	lh = LuaWorkerLoad(NULL, "init.lua");
 	lh = LuaWorkerRun(lh);
+	{
+		char *cp = LuaResultFieldString(lh,1,"hello");
+		if (cp)
+			puts(cp);
+		else
+			puts("nil");
+	}
 	LuaWorkerCleanup(lh);
 	
 	DispatchTable[0].lpServiceName = (LPSTR)ServiceName;
