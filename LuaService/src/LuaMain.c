@@ -12,6 +12,8 @@
 
 #include "luaservice.h"
 
+#include <time.h>
+
 /** Implement the Lua function sleep(ms).
  * 
  * Call the Windows Sleep() API to delay thread execution for 
@@ -314,10 +316,12 @@ static void initGlobals(lua_State *L)
 	// define a few useful utility functions
 	luaL_register(L, NULL, dbgFunctions);
 	lua_setglobal(L, "service");
+#if 0
 	luaL_dostring(L,
 			"package.path = string.replace([[@?.lua;@?\\init.lua]],'%@',service.path)\n"
 			"package.cpath = string.replace([[@?.dll;@loadall.dll]],'%@',service.path)\n"
 			);
+#endif
 	luaL_dostring(L,
 			"print = service.print\n"
 			"sleep = service.sleep\n");
@@ -372,12 +376,14 @@ static int pmain(lua_State *L)
 		// first, release any past results
 		lua_pushnil(L);
 		local_setreg(L,WORK_RESULTS);
-		// first, release any past results
 		lua_pushnil(L);
 		local_setreg(L,PENDING_WORK);
-
 		
-		// the script file name is always relative to the service folder
+		/**
+		 * \note The script file name is always relative to the 
+		 * service folder. This protects against substitution of
+		 * the script by a third party, at least to some degree.
+		 */
 		GetModuleFileName(GetModuleHandle(NULL), szPath, MAX_PATH);
 		cp = strrchr(szPath, '\\');
 		if (cp) {
@@ -388,7 +394,7 @@ static int pmain(lua_State *L)
 		} else {
 			return luaL_error(L, "Module name '%s' isn't fully qualified", szPath);
 		}
-		//OutputDebugStringA(szPath); 
+		SvcDebugTraceStr("Script: %s\n", szPath); 
 		status = luaL_loadfile(L,szPath);
 		if (status) { 
 			return luaL_error(L,"%s\n",lua_tostring(L,-1));
@@ -398,6 +404,7 @@ static int pmain(lua_State *L)
 	} else {
 		int n;
 		int i;
+		int results;
 		
 		// call pending code and save any results
 		
@@ -406,6 +413,8 @@ static int pmain(lua_State *L)
 		local_setreg(L,WORK_RESULTS);
 
 		lua_createtable(L, 5, 0);
+		results = lua_gettop(L);
+//#define NO_DEBUG_TRACEBACK
 #ifdef NO_DEBUG_TRACEBACK
 		n = lua_gettop(L);
 		local_getreg(L,PENDING_WORK);
@@ -416,20 +425,23 @@ static int pmain(lua_State *L)
 		lua_getfield(L, -1, "traceback"); // debug debug.traceback
 		lua_remove(L, -2); // debug.traceback
 		n = lua_gettop(L);
-		local_getreg(L,PENDING_WORK);
-		status = lua_pcall(L, 0, LUA_MULTRET, -2);
+		local_getreg(L,PENDING_WORK); // debug.traceback function
+		if (lua_type(L,-1) != LUA_TFUNCTION)
+			return luaL_error(L,"No pending work function to run");
+		status = lua_pcall(L, 0, LUA_MULTRET, -2); // debug.traceback ...
 #endif
 		if (status) { 
 			return luaL_error(L,"%s\n",lua_tostring(L,-1));
 		}
-		SvcDebugTrace("Pre-script top %d", n);
-		SvcDebugTrace("Post-script top %d", lua_gettop(L));
+		SvcDebugTrace("Saved work result count: %d", lua_gettop(L) - n);
 		for (i=lua_gettop(L); i>n; --i) {
-			SvcDebugTrace("Saving item %d", i-n);
-			SvcDebugTrace(lua_typename(L, lua_type(L, -1)), 0);
-			//SvcDebugTrace(lua_tostring(L,-1), 0);
-			lua_rawseti(L,n,i-n);
+			SvcDebugTraceStr("item: %s", lua_typename(L,lua_type(L,-1)));
+			lua_rawseti(L,results,i-n);
 		}
+		assert(lua_gettop(L) == n);
+		if (lua_gettop(L) != results)
+			lua_settop(L, results);
+		assert(lua_type(L,-1) == LUA_TTABLE);
 		local_setreg(L,WORK_RESULTS);
 		return 0;
 	}
@@ -456,15 +468,44 @@ static int pmain(lua_State *L)
  * \param osize	Size of the existing memory block.
  * \param nsize	Size of the memory block needed.
  */
-static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
-  (void)ud;
-  (void)osize;
-  if (nsize == 0) {
-    free(ptr);
-    return NULL;
-  }
-  else
-    return realloc(ptr, nsize);
+static void *LuaAlloc(void *ud, void *ptr, size_t osize, size_t nsize) {
+	void *retv = NULL;
+	(void)ud;
+	(void)osize;
+	if (nsize == 0) {
+		free(ptr);
+		retv = NULL;
+	}
+#ifdef USE_ONLY_MALLOC
+	else if (osize >= nsize)
+		retv = ptr;
+	else {
+		void *p = malloc(nsize);
+		if (!p) 
+			retv = NULL;
+		else {
+			memcpy(p,ptr,osize);
+			retv = p;
+		}
+	}
+#else
+	else
+		retv = realloc(ptr, nsize);
+#endif
+//#define LOG_ALLOCATIONS
+#ifdef LOG_ALLOCATIONS
+	{
+		//static clock_t basetime;
+		FILE *fp = fopen("alloc.log", "at");
+		assert(fp);
+		//if (basetime == 0)
+		//	basetime = clock();
+		fprintf(fp, "%ld %p %d %d %p\n", clock(), ptr, osize, nsize,
+				retv);
+		fclose(fp);
+	}
+#endif
+	return retv;
 }
 
 /** The panic function for a Lua state.
@@ -509,20 +550,25 @@ static int panic (lua_State *L) {
  * \param cmd Script or statement to load
  * \returns An opaque handle identifying the created Lua state.
  */
-LUAHANDLE LuaWorkerLoad(LUAHANDLE h, char *cmd)
+LUAHANDLE LuaWorkerLoad(LUAHANDLE h, const char *cmd)
 {
 	int status;
 	lua_State *L=(lua_State*)h;
 	
 	if (!h) {
-		  L = lua_newstate(l_alloc, NULL);
-		  assert(L);
-		  lua_atpanic(L, &panic);
+#if 0
+		L = luaL_newstate();
+#else
+		L = lua_newstate(LuaAlloc, NULL);
+#endif
+		assert(L);
+		lua_atpanic(L, &panic); 
 	}
 	status = lua_cpcall(L, &pmain, (void*)cmd);
 	if (status) {
-		SvcDebugTrace("Script cpcall status %d", status);
+		SvcDebugTrace("Load script cpcall status %d", status);
 		SvcDebugTrace((char *)lua_tostring(L,-1),0);
+		//return NULL; 
 	} else {
 		SvcDebugTrace("Script loaded ok", 0);
 	}
@@ -548,7 +594,7 @@ LUAHANDLE LuaWorkerRun(LUAHANDLE h)
 	}
 	status = lua_cpcall(L, &pmain, NULL);
 	if (status) {
-		SvcDebugTrace("Script cpcall status %d", status);
+		SvcDebugTrace("Run script cpcall status %d", status);
 		SvcDebugTrace((char *)lua_tostring(L,-1),0);
 	} else {
 		SvcDebugTrace("Script succeeded", 0);
@@ -584,6 +630,10 @@ char *LuaResultString(LUAHANDLE h, int item)
 	lua_State *L = (lua_State*)h;
 	if (!h) return NULL;
 	local_getreg(L,WORK_RESULTS);
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,1);
+		return NULL;
+	}
 	lua_rawgeti(L,-1,item);
 	ret = (char *)lua_tostring(L,-1);
 	if (ret)
@@ -608,6 +658,10 @@ int LuaResultInt(LUAHANDLE h, int item)
 	lua_State *L = (lua_State*)h;
 	if (!h) return 0;
 	local_getreg(L,WORK_RESULTS);
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,1);
+		return 0;
+	}
 	lua_rawgeti(L,-1,item);
 	ret = (int)lua_tointeger(L,-1);
 	lua_pop(L,2);
@@ -626,17 +680,26 @@ int LuaResultInt(LUAHANDLE h, int item)
  * \returns The string value (from strdup()) or NULL if the 
  * field or item doesn't exist or can't be converted to a string.
  */
-char *LuaResultFieldString(LUAHANDLE h, int item, char *field)
+char *LuaResultFieldString(LUAHANDLE h, int item, const char *field)
 {
 	char *ret = NULL;
 	lua_State *L = (lua_State*)h;
 	if (!h) return NULL;
-	local_getreg(L,WORK_RESULTS);
-	lua_rawgeti(L,-1,item);
+	local_getreg(L,WORK_RESULTS);	// table
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,1);
+		return NULL;
+	}
+	lua_rawgeti(L,-1,item);			// table itemtable
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,2);
+		return NULL;
+	}
+	lua_getfield(L,-1,field);		// table itemtable fieldvalue
 	ret = (char *)lua_tostring(L,-1);
 	if (ret)
 		ret = strdup(ret);
-	lua_pop(L,2);
+	lua_pop(L,3);
 	return ret;
 }
 
@@ -651,15 +714,24 @@ char *LuaResultFieldString(LUAHANDLE h, int item, char *field)
  * \returns The integer value or 0 if the field or item
  * doesn't exist or can't be converted to a number.
  */
-int LuaResultFieldInt(LUAHANDLE h, int item, char *field)
+int LuaResultFieldInt(LUAHANDLE h, int item, const char *field)
 {
 	int ret = 0;
 	lua_State *L = (lua_State*)h;
 	if (!h) return 0;
-	local_getreg(L,WORK_RESULTS);
-	lua_rawgeti(L,-1,item);
+	local_getreg(L,WORK_RESULTS);	// table
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,1);
+		return 0;
+	}
+	lua_rawgeti(L,-1,item);			// table itemtable
+	if (lua_type(L,-1) != LUA_TTABLE) {
+		lua_pop(L,2);
+		return 0;
+	}
+	lua_getfield(L,-1,field);		// table itemtable fieldvalue
 	ret = (int)lua_tointeger(L,-1);
-	lua_pop(L,2);
+	lua_pop(L,3);
 	return ret;
 }
 

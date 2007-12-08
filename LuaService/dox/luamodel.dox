@@ -9,18 +9,32 @@ interaction with the \ref ssSCM needed to start and stop the service.
 An installed LuaService will consist of a folder that holds the framework 
 executable, and at least two Lua source files.
 
-The first Lua file must be named SvcConf.lua, and contains a Lua script 
+The first Lua file must be named init.lua, and contains a Lua script 
 that returns a single table value. The Lua state it runs in should not
 be expected to survive into the actual service thread, so although 
-SvcConf.lua can modify the global environment, it can't expect that
+init.lua can modify its global environment, it can't expect that
 those changes will have any effect.
 
-The table returned by SvcConf.lua must define a service name, which will 
+The table returned by init.lua must define a service name, which will 
 be used to identify the service to the SCM by both a service controller 
 and the service application. Defining the name at run time allows the
 same service executable to be used to host any number of distinct services
 written in Lua on the same Windows machine without recompilation. Note, 
-however, that each service is still hosted by its own service application.
+however, that each service is still hosted by its own service application 
+and that in that case the SCM doesn't always seem to be picky about the
+service name registered when the service application runs.
+
+The table returned by init.lua should name the service's main script. If
+not specified, "test.lua" will be assumed. The script must be in the same 
+folder as LuaService.exe and init.lua, or a subfolder of that folder.
+
+<pre>
+-- The file init.lua
+return {
+    name = "UniqueServiceName",
+    script = "start.lua",
+}
+</pre>
 
 \section svcRuntime LuaService Runtime
 

@@ -728,7 +728,7 @@ HTML_ALIGN_MEMBERS = YES
 # Microsoft HTML help workshop to generate a compressed HTML help file (.chm) 
 # of the generated HTML documentation.
 
-GENERATE_HTMLHELP = NO
+GENERATE_HTMLHELP = YES
 
 # If the HTML_DYNAMIC_SECTIONS tag is set to YES then the generated HTML 
 # documentation will contain sections that can be hidden and shown after the 
@@ -743,14 +743,14 @@ HTML_DYNAMIC_SECTIONS = NO
 # can add a path in front of the file if the result should not be 
 # written to the html output directory.
 
-CHM_FILE = 
+CHM_FILE = LuaService.chm
 
 # If the GENERATE_HTMLHELP tag is set to YES, the HHC_LOCATION tag can 
 # be used to specify the location (absolute path including file name) of 
 # the HTML help compiler (hhc.exe). If non-empty doxygen will try to run 
 # the HTML help compiler on the generated index.hhp.
 
-HHC_LOCATION = 
+HHC_LOCATION = c:/Progra~1/HTMLHe~1/hhc.exe
 
 # If the GENERATE_HTMLHELP tag is set to YES, the GENERATE_CHI flag 
 # controls if a separate .chi index file is generated (YES) or that 
@@ -762,7 +762,7 @@ GENERATE_CHI = NO
 # controls whether a binary table of contents is generated (YES) or a 
 # normal table of contents (NO) in the .chm file.
 
-BINARY_TOC = NO
+BINARY_TOC = YES
 
 # The TOC_EXPAND flag can be set to YES to add extra items for group members 
 # to the contents of the HTML help documentation and to the tree view.
@@ -787,7 +787,7 @@ ENUM_VALUES_PER_LINE = 4
 # Netscape 6.0+, Internet explorer 5.0+, or Konqueror). Windows users are 
 # probably better off using the HTML help feature.
 
-GENERATE_TREEVIEW = YES
+GENERATE_TREEVIEW = NO
 
 # If the treeview is enabled (see GENERATE_TREEVIEW) then this tag can be 
 # used to set the initial width (in pixels) of the frame in which the tree 

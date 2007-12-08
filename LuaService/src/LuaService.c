@@ -34,11 +34,25 @@
  * the Service control panel, and in other spots where an end-user
  * might see it.
  * 
- * \todo Find a sensible way to configure this for a specific
- * installation of this framework, so that a single PC can have 
- * more than one service running based on this framework. 
+ * \note This value may be configured for a specific installation 
+ * of this framework by writing a lua script named init.lua that
+ * returns a table with a field <code>name</code>. The init.lua 
+ * script must be located in the same folder as LuaService.exe.
  */
 const char *ServiceName = "LuaService";
+
+/** Service launcher script.
+ * 
+ * This string names the Lua script that acts as the main entry
+ * point of the service worker thread. This script must be located
+ * inside the service's folder or a sub-folder.
+ *
+ * \note This value may be configured for a specific installation 
+ * of this framework by writing a lua script named init.lua that
+ * returns a table with a field <code>script</code>. The init.lua 
+ * script must be located in the same folder as LuaService.exe.
+ */
+const char *ServiceScript = "test.lua";
 
 /** Current service status.
  * 
@@ -135,6 +149,44 @@ void SvcDebugTrace(LPCSTR fmt, DWORD dw)
    }
 }
 
+/** Output a debug string.
+ * 
+ * The string is formatted and output only if SvcDebugTraceLevel is 
+ * greater than zero.
+ * 
+ * If SvcDebugTraceLevel is 2 or greater, the name of the service will
+ * be included in the output.
+ * 
+ * If SvcDebugTraceLevel is 3 or greater, the current process and thread
+ * ids will be included in the output in addition to the service name.
+ * 
+ * \context 
+ * Service, Configuration, Control
+ *  
+ * \bug This function has a buffer overrun risk if misused internally.
+ * 
+ * \param fmt A printf()-like format string with an optional reference to
+ * 				a single string value.
+ * \param s   A string value to substitute in the message.
+ */
+void SvcDebugTraceStr(LPCSTR fmt, LPCSTR s) 
+{ 
+   char Buffer[1024]; 
+   char *cp = Buffer;
+   
+   if (SvcDebugTraceLevel <= 0)
+	   return;
+   if (SvcDebugTraceLevel == 2)
+	   cp += sprintf(Buffer, "[%s] ", ServiceName);
+   else if (SvcDebugTraceLevel >= 3)
+	   cp += sprintf(Buffer, "[%s:%ld/%ld] ", ServiceName, GetCurrentProcessId(), GetCurrentThreadId());
+   if (s == NULL) s = "-nil-";
+   if (fmt == NULL) fmt = "-nil-";
+   if ((strlen(fmt)+strlen(s)) < sizeof(Buffer) - (cp - Buffer)) { 
+      sprintf(cp, fmt, s); 
+      OutputDebugStringA(Buffer); 
+   }
+}
 
 
 /** Service Control Handler.
@@ -241,8 +293,8 @@ DWORD LuaServiceInitialization(DWORD argc, LPTSTR *argv,
     	*ph = NULL;
     	return TRUE;
     }
-    SvcDebugTrace("Load LuaService script\n",0); 
-    *ph = LuaWorkerLoad(NULL, "test.lua");
+    SvcDebugTraceStr("Load LuaService script %s\n",ServiceScript); 
+    *ph = LuaWorkerLoad(NULL, ServiceScript);
     //LuaWorkerSetArgs(argc, argv);
     *perror = 0;
     return NO_ERROR; 
@@ -367,26 +419,32 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
  * \returns The ANSI C process exit status.
  * 
  * \see ssSvc
- */
+ */ 
 int main(int argc, char *argv[]) {
+	char *cp;
 	LUAHANDLE lh;
 	SERVICE_TABLE_ENTRY DispatchTable[2]; // note room for terminating record.
 	memset(DispatchTable,0,sizeof(DispatchTable));
 	
 	SvcDebugTrace("Entered main\n", 0);
 	lh = LuaWorkerLoad(NULL, "init.lua");
-	lh = LuaWorkerRun(lh);
-	{
-		char *cp = LuaResultFieldString(lh,1,"hello");
+	if (lh) {
+		lh = LuaWorkerRun(lh);
+		SvcDebugTrace("... ran init\n", 0);
+		cp = LuaResultFieldString(lh,1,"name");
 		if (cp)
-			puts(cp);
-		else
-			puts("nil");
+			ServiceName = cp;
+		SvcDebugTraceStr("... got name %s", cp);
+		cp = LuaResultFieldString(lh,1,"script");
+		if (cp)
+			ServiceScript = cp;
+		SvcDebugTraceStr("... got script %s", cp);
+		SvcDebugTrace("Finished pre-init\n", 0);
+		LuaWorkerCleanup(lh);
 	}
-	LuaWorkerCleanup(lh);
-	
 	DispatchTable[0].lpServiceName = (LPSTR)ServiceName;
 	DispatchTable[0].lpServiceProc = LuaServiceMain;
+	SvcDebugTraceStr("Service name: %s\n", ServiceName);
 	if (!StartServiceCtrlDispatcher(DispatchTable)) {
 		DWORD err = GetLastError();
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {

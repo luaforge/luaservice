@@ -73,6 +73,22 @@ off the deep end of full kernel debuggin. A serious Windows developer must
 have these and often other utilities from Sysinternals, now found at Microsoft:
 http://www.microsoft.com/technet/sysinternals/
 
+- SC.EXE, a generic service control utility for developers. This is part of the 
+Windows Platform SDK tools, but may be present on modern windows systems. Try a 
+command like <code>sc /?</code> to see if you have it installed already. Some 
+useful incantations include:
+  - <code>sc help</code> Documentation. Also see the technote in MSDN titled 
+<b><a href="http://msdn2.microsoft.com/en-us/library/ms810435.aspx" 
+target="_top" title="MSDN">Using SC.EXE to Develop Windows NT Services</a></b> 
+for hints and tips.
+  - <code>sc create LuaService binPath= "c:\full\path\of\LuaService.exe"</code> 
+Note the space after "binPath=" and the file name. All of sc create's options have 
+that same form, with the option name including the equals character, and using 
+the next command line argument as the value. Don't forget to quote the pathname
+if it includes any spaces.
+  - <code>sc start LuaService</code> Tell the SCM to start the service.
+  - <code>sc stop LuaService</code> Tell the SCM to stop the service.
+
 */
 
 /*! \page license License
