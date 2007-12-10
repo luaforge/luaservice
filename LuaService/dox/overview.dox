@@ -14,6 +14,135 @@ documentation, a bug tracker, and so forth can be found.
 itself. See \ref license for details. 
 - See \ref tools for some notes on the software tools used.
 - See \ref flow for discussion of the general event flow in a service.
+- See \ref luamodel for discussion of how Lua fits in the framework.
+- See \ref lsusage for a description of how to set up a service with LuaService.
+
+*/
+/*! \page lsusage Framework Usage
+
+LuaService is a Windows Service applicaiton that hosts a Lua interpreter.
+
+(Future versions may also act as a Windows Service controller, perform
+configuration tasks, or even run the service's script interactively to
+aid debugging.)
+
+A LuaService must include the files LuaService.exe and init.lua at a bare 
+minimum. In addition, it should include a Lua script that implements the 
+service (named in init.lua), and may also include any Lua modules (in 
+either .lua or .dll files) that are required to run the service script.
+
+Note that the module search paths specified by package.path and package.cpath 
+are restricted to the service's folder, so any needed modules should be copied
+into that folder in order for require() to locate them when the service starts.
+
+In the current version, the service must be manually installed, configured
+and started by another tool. SC.EXE is a generic service configuration and
+control utility that may be used for these tasks. The Services snapin for 
+the Microsoft Management Console may also be used to start and stop LuaService.
+
+\section uService service Table
+
+Both the init and service scripts have a global table named <code>service</code>
+available. That table has the following informational fields:
+
+- <code>service.name</code> The name of the service as specified by init.lua,
+defaulting to "LuaService". This name is known to the SCM, and is found in 
+the registry. 
+- <code>service.filename</code> The fully qualified filename of the service 
+program.
+- <code>service.path</code> The fully qualified path to the service folder. 
+This is just <code>service.filename</code> with LuaService.exe stripped off, 
+and can be assumed to end in a literal backslash character.
+
+It also defines the following utility functions:
+
+- <code>service.sleep(ms)</code> Calls Sleep() to make the thread sleep for 
+\a ms ms. 
+
+- <code>service.print(...)</code> Like standalone Lua.exe's print(), but
+with its output written to OutputDebugString() instead of stdout, and 
+without any separator characters between print's arguments. Like the 
+stock print(), it passes every argument through the function tostring(). 
+For safety since services don't have access to the user, the global function 
+print is replaced by a copy of this function.
+
+- <code>service.stopping()</code> Returns true if the SCM has asked that 
+this service stop soon. The service's main thread has promised the SCM
+that the STOP request will complete within about 25 seconds, so the script
+has an obligation to poll this function often enough to be able to stop 
+in time.
+
+- <code>service.tracelevel(level)</code> If \a level is not present or is 
+nil, returns the current trace level. If \a level is specified, it is 
+converted to an integer and sets the current trace level. Level 0 
+(the default) keeps the framework quiet. Levels greater than zero add 
+additional detail to the trace.
+
+\section uInit Init Script
+
+The init script is executed when LuaService is initially run from its main()
+function. Its purpose is to configure the service executable so that it can
+find its implementation script.
+
+The Lua state used to load and execute init.lua is abandoned once init.lua 
+returns, so nothing this script does has any effect on the service's execution
+except its return value.
+
+init.lua should return a table with several named fields.
+
+- <code>tracelevel</code> The framework trace level. Defaults to 0.
+- <code>name</code> The service's name. Defaults to "LuaService".
+- <code>script</code> The service's implementation script. Defaults to 
+"test.lua" in the current release, but that is obviously a bad default 
+script name and will change in a future release.
+
+The following fragment is a sample init.lua for an imaginary Ticker 
+service:
+
+<pre>
+-- init.lua for the Ticker service
+return {
+    tracelevel = 0,         -- Framework trace level
+    name = "TickService",   -- Service name for SCM
+    script = "ticker.lua",  -- Script that runs the service
+}
+</pre>
+
+\section uSvc Service Script
+
+The service implementation script is the whole point of having LuaService.
+
+It is named by the script field of the table returned by init.lua, and must
+be found in the service folder. It may require lua modules, as long as those
+modules are also found in the service folder.
+
+The following fragment is a sample ticker.lua for an imaginary Ticker 
+service:
+
+<pre>
+-- ticker.lua
+service.print("Ticker service started, named ", service.name)
+local i = 0                     -- counter
+while true do                   -- loop forever
+  service.sleep(5000)           -- sleep 5 seconds
+  i = i + 1                     -- count
+  print("tick", i)              -- OutputDebugString
+  if service.stopping() then    -- Test for STOP request 
+    return                      --  " and halt service if requested
+  end
+end
+service.print("Ticker service stopped.")
+</pre>
+
+\note Unless an account is specified when the service was installed, this 
+script is running in the LocalSystem security context. This is a built-in 
+account in Windows that has a high level of access to the local system 
+(more than the Administrator account), but has very limited access to 
+network resources. As a result, it is a really good idea to keep the 
+service's fold on a disk that is physically attached to the system. 
+LuaService probably cannot run if the folder is on a network drive.
+
+
 
 */
 

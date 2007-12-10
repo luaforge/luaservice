@@ -92,7 +92,7 @@ HANDLE ServiceWorkerThread;
  * 
  * Values range from zero (no tracing) and up.
  */
-int SvcDebugTraceLevel = 5;
+int SvcDebugTraceLevel = 0;
 
 /** Service Stopping Flag.
  * 
@@ -209,18 +209,18 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 	switch (Opcode) {
 #ifdef LUASERVICE_CAN_PAUSE_CONTINUE
 	case SERVICE_CONTROL_PAUSE:
-	/// \todo Do whatever it takes to pause here. 
+	// Do whatever it takes to pause here. 
 	LuaServiceStatus.dwCurrentState = SERVICE_PAUSED;
 	break;
 
 	case SERVICE_CONTROL_CONTINUE:
-	/// \todo Do whatever it takes to continue here. 
+	// Do whatever it takes to continue here. 
 	LuaServiceStatus.dwCurrentState = SERVICE_RUNNING;
 	break;
 #endif
 	case SERVICE_CONTROL_STOP:
-		/// \todo Do whatever it takes to stop here. 
-		SvcDebugTrace("Stopping Service\n", 0);
+		// Do whatever it takes to stop here. 
+		SvcDebugTrace("Telling service to stop\n", 0);
 		ServiceStopping = 1;
 		LuaServiceStatus.dwWin32ExitCode = 0;
 		LuaServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
@@ -263,9 +263,9 @@ void WINAPI LuaServiceCtrlHandler (DWORD Opcode)
 
 /** Stup initialization function.
  * 
- * Initialize Lua state then load and compile our script.
- * 
- * \todo Get the script name from a sensible algorithm?
+ * Initialize Lua state then load and compile our script. The script to run
+ * is specified by the <code>script</code> field in the table returned by
+ * init.lua.
  * 
  * \param argc Count of arguments passed to the service program by the SCM.
  * \param argv Array of argument strings passed to the service program by the SCM.
@@ -421,7 +421,6 @@ void WINAPI LuaServiceMain(DWORD argc, LPTSTR *argv)
  * \see ssSvc
  */ 
 int main(int argc, char *argv[]) {
-	char *cp;
 	LUAHANDLE lh;
 	SERVICE_TABLE_ENTRY DispatchTable[2]; // note room for terminating record.
 	memset(DispatchTable,0,sizeof(DispatchTable));
@@ -429,8 +428,12 @@ int main(int argc, char *argv[]) {
 	SvcDebugTrace("Entered main\n", 0);
 	lh = LuaWorkerLoad(NULL, "init.lua");
 	if (lh) {
+		char *cp;
+		int n;
 		lh = LuaWorkerRun(lh);
 		SvcDebugTrace("... ran init\n", 0);
+		n = LuaResultFieldInt(lh,1,"tracelevel");
+		SvcDebugTraceLevel = n;
 		cp = LuaResultFieldString(lh,1,"name");
 		if (cp)
 			ServiceName = cp;

@@ -1,17 +1,29 @@
+/*! \file SvcController.c
+ *  \brief Functions to configure and control a service.
+ */
 #include <windows.h>
 #include <process.h> 
 #include <stdio.h>
 
 #include "luaservice.h"
 
-/* Glboals for communication with real service implementation */
-	extern void threadMain(void);
 
-static struct ErrEntry {
-	int code;
-	const char* msg;
-} ErrList[] = {
-// http://msdn.microsoft.com/library/default.asp?url=/library/en-us/debug/base/system_error_codes.asp
+/** Error code list entry.
+ * Entry in a list of Windows error codes.
+ */  
+struct ErrEntry {
+	int code;	/**< Windows error code. */
+	const char* msg; /**< Error message. */
+};
+
+/** List of Windows error codes.
+ * 
+ * This is a subset of the list of known Windows errors selected to include
+ * the errors that relate to service configuration and control.
+ * 
+ * \see http://msdn.microsoft.com/library/default.asp?url=/library/en-us/debug/base/system_error_codes.asp
+ */
+static struct ErrEntry ErrList[] = {
 	{ 0,	"No error" },
 	{ 1055,	"The service database is locked." },
 	{ 1056,	"An instance of the service is already running." },
@@ -31,11 +43,9 @@ static struct ErrEntry {
 	{ 1073, "The service already exists." },
 	{ 1078,	"The name is already in use as either a service name or a service display name." },
 };
-const int nErrList = sizeof(ErrList) / sizeof(ErrList[0]);
-
+static const int nErrList = sizeof(ErrList) / sizeof(ErrList[0]); /**< length of the error list. */
 
 //// Global /////////////////////////////////////////////////////////
-FILE*		pLog;							
 HANDLE		terminateEvent = NULL;			// Event used to hold ServerMain from completing
 											// Handle used to communicate status info with 
 											// the SCM. Created by RegisterServiceCtrlHandler
@@ -398,6 +408,7 @@ void terminate(DWORD error)
 	
 void ErrorHandler(char *s, int err)
 {
+	FILE*		pLog;							
 
 	printf("%s failed\n"
 			"Error (%d): ", s, err);
