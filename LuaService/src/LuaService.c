@@ -451,8 +451,9 @@ int main(int argc, char *argv[]) {
 	if (!StartServiceCtrlDispatcher(DispatchTable)) {
 		DWORD err = GetLastError();
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
+			return SvcControlMain(argc, argv);
 			/// \todo Implement service configuration and control here.
-			printf("Not a service, no controls implemented.\n");
+			//printf("Not a service, no controls implemented.\n");
 		} else {
 			SvcDebugTrace("StartServiceCtrlDispatcher failed %ld\n", err);
 			return EXIT_FAILURE;

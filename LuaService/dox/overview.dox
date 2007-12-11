@@ -128,7 +128,7 @@ while true do                   -- loop forever
   i = i + 1                     -- count
   print("tick", i)              -- OutputDebugString
   if service.stopping() then    -- Test for STOP request 
-    return                      --  " and halt service if requested
+    break                       --  " and halt service if requested
   end
 end
 service.print("Ticker service stopped.")

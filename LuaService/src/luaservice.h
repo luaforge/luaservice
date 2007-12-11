@@ -25,4 +25,7 @@ extern const char *ServiceName;
 extern const char *ServiceScript;
 extern volatile int ServiceStopping;
 
+// From SvcController.c
+extern int SvcControlMain(int argc, char *argv[]);
+
 #endif /*LUASERVICE_H_*/

@@ -8,14 +8,18 @@ assumptions.
 
 Copy the LuaService executable to this folder.
 
-Use sc.exe to create the service:
+To use sc.exe to create, start, and stop the service:
 
-sc create TickService binPath= "C:\Docume~1\Ross\workspace\LuaService\Samples\Ticker\LuaService.exe"
-
-Use sc to start and stop the service:
-
+sc create TickService binPath= "C:\path\to\this\folder\LuaService.exe"
 sc start TickService
 sc stop TickService
+
+To use LuaService to create, start, and stop the service:
+
+LuaService -i		Create and start the ticker service
+LuaService -r 		Start the service
+LuaService -s		Stop the service
+LuaService -u		Uninstall the service
 
 You will want a debug console that is listening to OutputDebugString() to 
 see this service do anything at all. DebugView from www.sysinternals.com
@@ -30,7 +34,7 @@ while true do					-- loop forever
   i = i + 1						-- count
   print("tick", i)				-- OutputDebugString
   if service.stopping() then	-- Test for STOP request 
-  	return 						--  " and halt service if requested
+  	break						--  " and halt service if requested
   end
 end
 service.print("Ticker service stopped.")
