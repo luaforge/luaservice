@@ -47,6 +47,7 @@ would love to have feedback from Vista users.
 
 Please visit the LuaService project pages at Luaforge:
 
+	http://luaforge.net/projects/luaservice/
 	http://luaservice.luaforge.net/
 
 There you will find the full source code, bug trackers, and so
