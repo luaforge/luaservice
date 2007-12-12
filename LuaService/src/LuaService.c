@@ -123,11 +123,9 @@ volatile int ServiceStopping = 0;
  * \context 
  * Service, Configuration, Control
  *  
- * \bug This function has a buffer overrun risk if misused internally.
- * 
- * \param fmt A printf()-like format string with an optional reference to
- * 				a single DWORD value.
- * \param dw A DWORD value to substitute in the message.
+ * \param fmt	A printf()-like format string with an optional reference to
+ * 		a single DWORD value.
+ * \param dw	A DWORD value to substitute in the message.
  */
 void SvcDebugTrace(LPCSTR fmt, DWORD dw)
 {
@@ -144,10 +142,11 @@ void SvcDebugTrace(LPCSTR fmt, DWORD dw)
     if (fmt == NULL) {
 	strcpy(cp, "-nil-");
 	OutputDebugStringA(Buffer);
-    } else if (strlen(fmt) < sizeof(Buffer) - 30) {
+    } else if ((strlen(fmt)+12) < (sizeof(Buffer) - (cp - Buffer))) {
 	sprintf(cp, fmt, dw);
 	OutputDebugStringA(Buffer);
-    }
+    } else
+	OutputDebugStringA("--buffer overflow--");
 }
 
 /** Output a debug string.
@@ -164,11 +163,9 @@ void SvcDebugTrace(LPCSTR fmt, DWORD dw)
  * \context 
  * Service, Configuration, Control
  *  
- * \bug This function has a buffer overrun risk if misused internally.
- * 
- * \param fmt A printf()-like format string with an optional reference to
- * 				a single string value.
- * \param s   A string value to substitute in the message.
+ * \param fmt	A printf()-like format string with an optional reference to
+ * 		a single string value.
+ * \param s	A string value to substitute in the message.
  */
 void SvcDebugTraceStr(LPCSTR fmt, LPCSTR s)
 {
@@ -189,7 +186,8 @@ void SvcDebugTraceStr(LPCSTR fmt, LPCSTR s)
     if ((strlen(fmt)+strlen(s)) < sizeof(Buffer) - (cp - Buffer)) {
 	sprintf(cp, fmt, s);
 	OutputDebugStringA(Buffer);
-    }
+    } else
+	OutputDebugStringA("--buffer overflow--");
 }
 
 /** Service Control Handler.
