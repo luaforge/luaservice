@@ -67,6 +67,14 @@
 <tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug.63939784" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.debug.2114735474"/>
 </toolChain>
 </folderInfo>
+<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.802268223.1371983549" name="LuaService.rc" rcbsApplicability="override" resourcePath="src/LuaService.rc" toolsToInvoke="org.eclipse.cdt.managedbuilder.ui.rcbs.148379519">
+<tool announcement="Invoking: Resource Custom Build Step" command="windres -o src/LuaService.res.o ../src/LuaService.rc " customBuildStep="true" id="org.eclipse.cdt.managedbuilder.ui.rcbs.148379519" name="Resource Custom Build Step">
+<inputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.inputtype.1821996545" name="Resource Custom Build Step Input Type">
+<additionalInput kind="additionalinputdependency" paths=""/>
+</inputType>
+<outputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.outputtype.403982763" name="Resource Custom Build Step Output Type" outputNames="src/LuaService.res.o"/>
+</tool>
+</fileInfo>
 <sourceEntries>
 <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 </sourceEntries>
@@ -323,6 +331,7 @@
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 <storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
+<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cconfiguration>
 <cconfiguration id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465">
 <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465" moduleId="org.eclipse.cdt.core.settings" name="Release">
@@ -335,7 +344,7 @@
 </extensions>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<configuration artifactName="LuaService" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -rf" description="" id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465" name="Release" parent="cdt.managedbuild.config.gnu.mingw.exe.release">
+<configuration artifactExtension="exe" artifactName="LuaService" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release,org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" cleanCommand="rm -rf" description="" id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465" name="Release" parent="cdt.managedbuild.config.gnu.mingw.exe.release">
 <folderInfo id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465." name="/" resourcePath="">
 <toolChain id="cdt.managedbuild.toolchain.gnu.mingw.exe.release.1161577234" name="MinGW GCC" superClass="cdt.managedbuild.toolchain.gnu.mingw.exe.release">
 <targetPlatform id="cdt.managedbuild.target.gnu.platform.mingw.exe.release.667770251" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.mingw.exe.release"/>
@@ -388,6 +397,14 @@
 <tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.release.243855361" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.exe.release.1838641529"/>
 </toolChain>
 </folderInfo>
+<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.release.1671562465.298641186" name="LuaService.rc" rcbsApplicability="override" resourcePath="src/LuaService.rc" toolsToInvoke="org.eclipse.cdt.managedbuilder.ui.rcbs.494035987">
+<tool announcement="Invoking: Resource Custom Build Step" command="windres -o src/LuaService.res.o ../src/LuaService.rc " customBuildStep="true" id="org.eclipse.cdt.managedbuilder.ui.rcbs.494035987" name="Resource Custom Build Step">
+<inputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.inputtype.228709586" name="Resource Custom Build Step Input Type">
+<additionalInput kind="additionalinputdependency" paths=""/>
+</inputType>
+<outputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.outputtype.1351002780" name="Resource Custom Build Step Output Type" outputNames="src/LuaService.res.o"/>
+</tool>
+</fileInfo>
 <sourceEntries>
 <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 </sourceEntries>
@@ -644,6 +661,7 @@
 </storageModule>
 <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 <storageModule moduleId="org.eclipse.cdt.core.language.mapping"/>
+<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
