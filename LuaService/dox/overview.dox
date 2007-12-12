@@ -35,10 +35,13 @@ Note that the module search paths specified by package.path and package.cpath
 are restricted to the service's folder, so any needed modules should be copied
 into that folder in order for require() to locate them when the service starts.
 
-In the current version, the service must be manually installed, configured
-and started by another tool. SC.EXE is a generic service configuration and
-control utility that may be used for these tasks. The Services snapin for 
-the Microsoft Management Console may also be used to start and stop LuaService.
+The LuaService executable can also be used to install, uninstall, start, 
+and stop the service. However, its service installer has limitations (for
+instance, it can't install the service to run as a specific user) that 
+will require the use of another service installation utility for some 
+configurations. SC.EXE is a generic service configuration and control 
+utility that may be used for these tasks. The Services snapin for the 
+Microsoft Management Console may also be used to start and stop LuaService.
 
 \section uService service Table
 
@@ -93,8 +96,7 @@ init.lua should return a table with several named fields.
 - <code>tracelevel</code> The framework trace level. Defaults to 0.
 - <code>name</code> The service's name. Defaults to "LuaService".
 - <code>script</code> The service's implementation script. Defaults to 
-"test.lua" in the current release, but that is obviously a bad default 
-script name and will change in a future release.
+"service.lua".
 
 The following fragment is a sample init.lua for an imaginary Ticker 
 service:

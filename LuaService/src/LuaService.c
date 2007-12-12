@@ -52,7 +52,7 @@ const char *ServiceName = "LuaService";
  * returns a table with a field <code>script</code>. The init.lua 
  * script must be located in the same folder as LuaService.exe.
  */
-const char *ServiceScript = "test.lua";
+const char *ServiceScript = "service.lua";
 
 /** Current service status.
  * 

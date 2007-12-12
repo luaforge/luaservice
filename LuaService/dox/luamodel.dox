@@ -25,7 +25,7 @@ and that in that case the SCM doesn't always seem to be picky about the
 service name registered when the service application runs.
 
 The table returned by init.lua should name the service's main script. If
-not specified, "test.lua" will be assumed. The script must be in the same 
+not specified, "service.lua" will be assumed. The script must be in the same 
 folder as LuaService.exe and init.lua, or a subfolder of that folder.
 
 <pre>
