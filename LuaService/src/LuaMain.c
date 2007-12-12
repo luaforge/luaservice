@@ -69,6 +69,12 @@ static int dbgPrint(lua_State *L)
  * 
  * Discover the current directory name and return it to the caller.
  * 
+ * \todo There is a low-probability memory leak here. The buffer used 
+ * to hold the current directory string came from malloc() and is held 
+ * across a call to lua_pushlstring() which can potentially throw an
+ * error, which will leak the allocated buffer. The other bits of Win32
+ * API wrappers could have similar issues, and should be inspected.
+ * 
  * \param L Lua state context for the function.
  * \returns The number of values on the Lua stack to be returned
  * to the Lua caller.
@@ -85,6 +91,7 @@ static int dbgGetCurrentDirectory(lua_State *L)
 		return luaL_error(L,"GetCurrentDirectory can't allocate %ld chars", len);
 	GetCurrentDirectoryA(len+1, buf);
 	lua_pushlstring(L, buf, len);
+	free(buf);
 	return 1;
 }
 
