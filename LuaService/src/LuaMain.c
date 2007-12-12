@@ -132,7 +132,11 @@ static int dbgTracelevel(lua_State *L)
 
 /** Implement the Lua function GetCurrentConfiguration().
  * 
- * Discover the current directory name and return it to the caller.
+ * Discover some details about the service's configuration as 
+ * known to the \ref ssSCM and report them to the debug trace.
+ * 
+ * \todo It would be much more useful to return the configuration 
+ * to the Lua side as a table. 
  * 
  * \param L Lua state context for the function.
  * \returns The number of values on the Lua stack to be returned
