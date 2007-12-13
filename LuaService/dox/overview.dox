@@ -17,10 +17,19 @@ itself. See \ref license for details.
 - See \ref luamodel for discussion of how Lua fits in the framework.
 - See \ref lsusage for a description of how to set up a service with LuaService.
 
-*/
-/*! \page lsusage Framework Usage
+Note that LuaService assumes that lua5.1.dll from the Lua Binaries 
+(http://luaforge.net/projects/luabinaries/) distribution is located 
+somewhere that the LocalSystem account can find it. The best way to 
+guarantee this is true is to put a copy of lua5.1.dll in the same 
+folder as LuaService.exe.
 
-LuaService is a Windows Service applicaiton that hosts a Lua interpreter.
+LuaService has been tested against both Lua 5.1.1 and Lua 5.1.2. The 
+latter is preferred.
+
+*/
+/*! \page lsusage Using the LuaService Framework
+
+LuaService is a Windows Service application that hosts a Lua interpreter.
 
 (Future versions may also act as a Windows Service controller, perform
 configuration tasks, or even run the service's script interactively to

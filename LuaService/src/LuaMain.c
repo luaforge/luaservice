@@ -130,13 +130,39 @@ static int dbgTracelevel(lua_State *L)
 	return 1;
 }
 
+/** Utility macro to add a field to the table at the top of stack.
+ * Note this assumes that a table is currently at the top of the
+ * stack. If that is not true, then this macro probably causes 
+ * Lua to throw an error.
+ * 
+ * \param f String literal field name.
+ * \param n Integer field value
+ */
+#define fieldint(f,n) do{			\
+    	lua_pushinteger(L,(n));			\
+    	lua_setfield(L,-2,f);			\
+    	SvcDebugTrace("  " f ": 0x%x\n", (n));	\
+    }while(0)
+
+/** Utility macro to add a field to the table at the top of stack.
+ * Note this assumes that a table is currently at the top of the
+ * stack. If that is not true, then this macro probably causes 
+ * Lua to throw an error.
+ * 
+ * \param f String literal field name.
+ * \param s String field value
+ */
+#define fieldstr(f,s) do{			\
+    	lua_pushstring(L,(s));			\
+    	lua_setfield(L,-2,f);			\
+	SvcDebugTraceStr("  " f ": %s\n", (s));	\
+    }while(0)
+
 /** Implement the Lua function GetCurrentConfiguration().
  * 
  * Discover some details about the service's configuration as 
- * known to the \ref ssSCM and report them to the debug trace.
- * 
- * \todo It would be much more useful to return the configuration 
- * to the Lua side as a table. 
+ * known to the \ref ssSCM and report them to the debug trace
+ * while building a table from them to return.
  * 
  * \param L Lua state context for the function.
  * \returns The number of values on the Lua stack to be returned
@@ -144,102 +170,102 @@ static int dbgTracelevel(lua_State *L)
  */
 static int dbgGetCurrentConfiguration(lua_State *L)
 {
-	SC_HANDLE schService;
-	SC_HANDLE schManager;
-    LPQUERY_SERVICE_CONFIG lpqscBuf; 
+    SC_HANDLE schService;
+    SC_HANDLE schManager;
+    LPQUERY_SERVICE_CONFIG lpqscBuf;
     LPSERVICE_DESCRIPTION lpqscBuf2;
-    DWORD dwBytesNeeded; 
- 
+    DWORD dwBytesNeeded;
+    const char *name;
+
+    name = luaL_optstring(L, 1, ServiceName);
+    SvcDebugTraceStr("Get service configuration for %s:\n", name);
+    
     // Open a handle to the service. 
     schManager = OpenSCManagerA(NULL, NULL, (0
-    		|GENERIC_READ
-    		|SC_MANAGER_CONNECT 
-    		|SC_MANAGER_CREATE_SERVICE 
-    		|SC_MANAGER_ENUMERATE_SERVICE 
-    		) );
+	    |GENERIC_READ
+	    |SC_MANAGER_CONNECT
+	    |SC_MANAGER_CREATE_SERVICE
+	    |SC_MANAGER_ENUMERATE_SERVICE
+    ));
     if (schManager == NULL)
-    	return luaL_error(L,"OpenSCManager failed (%d)", GetLastError());
+	return luaL_error(L, "OpenSCManager failed (%d)", GetLastError());
     schService = OpenServiceA(schManager, // SCManager database 
-			ServiceName, // name of service 
-			SERVICE_QUERY_CONFIG); // need QUERY access 
-	if (schService == NULL) {
-		CloseServiceHandle(schManager);
-		return luaL_error(L,"OpenService failed (%d)", GetLastError());
-	}
-    
-    // Allocate a buffer for the configuration information.
- 
-    lpqscBuf = (LPQUERY_SERVICE_CONFIG) LocalAlloc( 
-        LPTR, 8192); 
-    if (lpqscBuf == NULL) {
-        CloseServiceHandle(schService);
-        CloseServiceHandle(schManager);
-        return luaL_error(L,"Can't allocate lpqscBuf");
-    } 
-    lpqscBuf2 = (LPSERVICE_DESCRIPTION) LocalAlloc( 
-        LPTR, 8192); 
-    if (lpqscBuf2 == NULL) {
-        LocalFree(lpqscBuf); 
-        CloseServiceHandle(schService);
-        CloseServiceHandle(schManager);
-        return luaL_error(L,"Can't allocate lpqscBuf2");
-    } 
-    // Get the configuration information. 
- 
-    if (! QueryServiceConfig( 
-        schService, 
-        lpqscBuf, 
-        8192, 
-        &dwBytesNeeded) )     {
-    	
-        LocalFree(lpqscBuf); 
-        LocalFree(lpqscBuf2); 
-        CloseServiceHandle(schService);
-        CloseServiceHandle(schManager);
-        return luaL_error(L,"QueryServiceConfig failed (%d)", GetLastError());
+	    name, // name of service 
+	    SERVICE_QUERY_CONFIG); // need QUERY access 
+    if (schService == NULL) {
+	CloseServiceHandle(schManager);
+	return luaL_error(L, "OpenService failed (%d)", GetLastError());
     }
- 
-    if (! QueryServiceConfig2( 
-        schService, 
-        SERVICE_CONFIG_DESCRIPTION,
-        (LPBYTE)lpqscBuf2, 
-        8192, 
-        &dwBytesNeeded) ) {
-    	
-        LocalFree(lpqscBuf); 
-        LocalFree(lpqscBuf2); 
-        CloseServiceHandle(schService);
-        CloseServiceHandle(schManager);
-        return luaL_error(L,"QueryServiceConfig2 failed (%d)", GetLastError());
-    }
- 
-    // Print the configuration information.
- 
-    SvcDebugTrace("\nSample_Srv configuration: \n",0);
-    SvcDebugTrace(" Type: 0x%x\n", lpqscBuf->dwServiceType);
-    SvcDebugTrace(" Start Type: 0x%x\n", lpqscBuf->dwStartType);
-    SvcDebugTrace(" Error Control: 0x%x\n", lpqscBuf->dwErrorControl);
-    //SvcDebugTrace(" Binary path: %s\n", lpqscBuf->lpBinaryPathName);
 
-#if 0
+    // Allocate buffers for the configuration information.
+    lpqscBuf = (LPQUERY_SERVICE_CONFIG) LocalAlloc(
+    LPTR, 8192);
+    if (lpqscBuf == NULL) {
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schManager);
+	return luaL_error(L, "Can't allocate lpqscBuf");
+    }
+    lpqscBuf2 = (LPSERVICE_DESCRIPTION) LocalAlloc(
+    LPTR, 8192);
+    if (lpqscBuf2 == NULL) {
+	LocalFree(lpqscBuf);
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schManager);
+	return luaL_error(L, "Can't allocate lpqscBuf2");
+    }
+    
+    // Get the configuration information. 
+    if (! QueryServiceConfig(
+	    schService,
+	    lpqscBuf,
+	    8192,
+	    &dwBytesNeeded)) {
+	LocalFree(lpqscBuf);
+	LocalFree(lpqscBuf2);
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schManager);
+	return luaL_error(L, "QueryServiceConfig failed (%d)",
+		GetLastError());
+    }
+    if (! QueryServiceConfig2(
+	    schService,
+	    SERVICE_CONFIG_DESCRIPTION,
+	    (LPBYTE)lpqscBuf2,
+	    8192,
+	    &dwBytesNeeded)) {
+	LocalFree(lpqscBuf);
+	LocalFree(lpqscBuf2);
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schManager);
+	return luaL_error(L, "QueryServiceConfig2 failed (%d)",
+		GetLastError());
+    }
+
+    // Build a table of configuration details, 
+    // passing them to the trace log along the way
+
+    lua_newtable(L);
+    fieldstr("name", name);
+    fieldint("ServiceType", lpqscBuf->dwServiceType);
+    fieldint("StartType", lpqscBuf->dwStartType);
+    fieldint("ErrorControl", lpqscBuf->dwErrorControl);
+    fieldstr("BinaryPathName", lpqscBuf->lpBinaryPathName);
     if (lpqscBuf->lpLoadOrderGroup != NULL)
-        printf(" Load order group: %s\n", lpqscBuf->lpLoadOrderGroup);
+	fieldstr("LoadOrderGroup", lpqscBuf->lpLoadOrderGroup);
     if (lpqscBuf->dwTagId != 0)
-        printf(" Tag ID: %d\n", lpqscBuf->dwTagId);
+	fieldint("TagId", lpqscBuf->dwTagId);
     if (lpqscBuf->lpDependencies != NULL)
-        printf(" Dependencies: %s\n", lpqscBuf->lpDependencies);
+	fieldstr("Dependencies", lpqscBuf->lpDependencies);
     if (lpqscBuf->lpServiceStartName != NULL)
-        printf(" Start Name: %s\n", lpqscBuf->lpServiceStartName);
+	fieldstr("ServiceStartName", lpqscBuf->lpServiceStartName);
     if (lpqscBuf2->lpDescription != NULL)
-        printf(" Description: %s\n", lpqscBuf2->lpDescription);
-#endif
+	fieldstr("Description", lpqscBuf2->lpDescription);
     
-    
-    LocalFree(lpqscBuf); 
-    LocalFree(lpqscBuf2); 
+    LocalFree(lpqscBuf);
+    LocalFree(lpqscBuf2);
     CloseServiceHandle(schService);
     CloseServiceHandle(schManager);
-    return 0;
+    return 1;
 }
 
 /** Private key for a pending compiled but unexecuted Lua chunk. */
@@ -255,9 +281,9 @@ static const char *WORK_RESULTS= "Work Results";
  * \param L The Lua state.
  * \param key A private key in the form of a pointer to something.
  */
-#define local_getreg(L,key) do { 				\
+#define local_getreg(L,key) do {			\
 		lua_pushlightuserdata(L,(void*)key);	\
-		lua_gettable(L,LUA_REGISTRYINDEX);		\
+		lua_gettable(L,LUA_REGISTRYINDEX);	\
 	} while(0)
 
 /** Store the top of stack in a private key in the registry.
@@ -268,10 +294,10 @@ static const char *WORK_RESULTS= "Work Results";
  * \param L The Lua state.
  * \param key A private key in the form of a pointer to something.
  */
-#define local_setreg(L,key) do {				\
+#define local_setreg(L,key) do {			\
 		lua_pushlightuserdata(L,(void*)key);	\
-		lua_insert(L,-2);						\
-		lua_settable(L,LUA_REGISTRYINDEX);		\
+		lua_insert(L,-2);			\
+		lua_settable(L,LUA_REGISTRYINDEX);	\
     } while(0)
 
 
