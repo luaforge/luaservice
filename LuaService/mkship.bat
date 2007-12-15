@@ -1,8 +1,11 @@
 @echo off
+rd/s/q ship
 mkdir ship
-del /Q ship\*.*
 copy Readme.txt ship
 copy Release\LuaService.exe ship
-copy doc\html\LuaService.chm ship
-copy Samples\Ticker\*.lua ship
-zip ship%1.zip ship\*.*
+copy doc\LuaService.chm ship
+mkdir ship\Ticker
+copy Samples\Ticker\*.lua ship\Ticker
+mkdir ship\Rot13
+copy Samples\Rot13\*.lua ship\Rot13
+zip -r ship%1.zip ship\*.*

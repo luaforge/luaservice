@@ -3,11 +3,16 @@ Rot13 Service
 
 This service watches a folder for files. When a new file is found, 
 it transforms text in the file with a ROT13 encryption. This version
-uses LuaFileSystem (available separately) to scan its folder. A 
-better implementation would be to use a Windows folder changed event
-to reduce the impact on the system.
+uses LuaFileSystem (available separately from the Keppler Project) 
+to scan its folder. A better implementation would be to use a 
+Windows folder change event to reduce the impact on the system, but
+testing by copying 300 files to the watched folder shows that the
+impact of doing it this way isn't as large as might be feared.
 
-Copy the LuaService executable to this folder.
+Usage:
+
+Copy the LuaService executable to this folder, along with lua5.1.dll
+and lfs.dll.
 
 LuaService -i		Create and start the ticker service
 LuaService -r 		Start the service
@@ -17,6 +22,12 @@ LuaService -u		Uninstall the service
 You will want a debug console that is listening to OutputDebugString() to 
 track progress as this service executes. DebugView from www.sysinternals.com
 is a good choice.
+
+Once the service is running, copy a file to \tmp\rot and notice that 
+about a second later it has had its content scrambled. Rename the file,
+and notice that a second scramble restores the content.
+
+A brief history of ROT13 is at http://en.wikipedia.org/wiki/Rot13
 --]]--------------
 assert(require"lfs")
 

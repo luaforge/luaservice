@@ -1,7 +1,7 @@
 LuaService
 A framework for running a Lua script as a Windows Service.
 
-This is the first alpha release of LuaService.
+This is the second alpha release of LuaService.
 
 All the documentation is provided through Doxygen, and drawn from 
 source code comments and the files in the dox folder which provide
@@ -18,18 +18,30 @@ service.
 The following files are included in this release:
 
 ReadMe.txt		This file.
-LuaService.exe	The Lua Windows Service framework.
-LuaService.chm	Documentation
-init.lua		Ticker service initialization file.
-test.lua		Ticker service implementation.
-
-Since the demo service's only visible effect is to call 
+LuaService.exe		The Lua Windows Service framework.
+LuaService.chm		Documentation
+Ticker			Folder with the Ticker sample
+  init.lua		  Ticker service initialization file.
+  test.lua		  Ticker service implementation.
+Rot13
+  init.lua		  Rot13 service initialization file.
+  rot13svc.lua		  Rot13 service implementation.
+  
+Since the Ticker sample service's only visible effect is to call 
 OutputDebugString(), you will need a tool like DebugView to see
 it work.  Get DebugView from the Sysinternals group at Microsoft,
 http://www.microsoft.com/technet/sysinternals/. While there, you
 might want to look at ProcessExplorer and ProcessMonitor, both
 of which have been valuable for debugging LuaService and other
 Windows applications.
+
+The Rot13 sample is more complete. Create the folder \tmp\rot
+on the same drive that has \WINDOWS on it. Copy LuaService.exe,
+lua5.1.dll, and lfs.dll into the Rot13 sample's folder, and 
+say LuaService -i to install and start it. Now, any file copied
+into \tmp\rot will be transformed through ROT13. (ROT13 is 
+described by http://en.wikipedia.org/wiki/Rot13.) Run DebugView
+and see a trace of its activity while it works.
 
 This is an alpha release. Please do not install this on a 
 production or mission critical system. It is believed to be 
