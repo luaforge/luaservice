@@ -20,23 +20,60 @@ is a good choice.
 --]]--------------
 assert(require"lfs")
 
-local watched = [[\tmp\rot]]
-local found = {}
+local watched = [[\tmp\rot]]	-- folder to watch
 
+
+-- ROT13 a string. Copied from the Lua-L archive, from a 
+-- message from Philippe Lhoste on Fri, 22 Oct 2004
+local function Rotate13(t)
+  local byte_a, byte_A = string.byte('a'), string.byte('A')
+  return (string.gsub(t, "[%a]",
+      function (char)
+        local offset = (char < 'a') and byte_A or byte_a
+        local b = string.byte(char) - offset -- 0 to 25
+        b = math.mod(b  + 13, 26) + offset -- Rotate
+        return string.char(b)
+      end
+    ))
+end
+
+
+local found = {}	-- memory of files seen in the folder
+
+-- examine a folder for files that are new since the last peek.
 local function CheckForFiles()
+	-- list of new files
 	local r = {}
 	for f in lfs.dir(watched) do
 		local ff = watched..[[\]]..f
 		if lfs.attributes(ff, "mode") == "file" then
 			if not found[ff] then 
-				found[ff] = true
+				found[ff] = "new"
 				r[#r+1] = ff
+			else
+				found[ff] = "newish"
 			end
 		end
+	end
+	-- scan for old files that have been deleted
+	local d = {}
+	for k,f in pairs(found) do
+		if f == "old" then 
+			d[#d+1] = k
+		else
+			found[k] = "old"
+		end
+	end
+	-- forget about the deleted files
+	for i,k in ipairs(d) do
+		found[k] = nil
 	end
 	return #r>0 and r or nil
 end
 
+-- Apply ROT13 to an entire file. If the file
+-- has gone missing, delete it from the table
+-- of remembered files.
 local function Rot13File(file)
 	service.print("Rot13: ", file)
 	local f,err = io.open(file, "r+")
@@ -46,11 +83,8 @@ local function Rot13File(file)
 		return
 	end
 	local txt = f:read("*a")
-	txt:gsub("%w", function(char) 
-		return char	-- do the rot 13 transform here 
-	end)
 	f:seek("set",0)
-	f:write(txt)
+	f:write(Rotate13(txt))
 	f:close()
 end
 
