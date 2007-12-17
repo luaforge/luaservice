@@ -86,5 +86,5 @@ clean:
 END
 close OUT;
 
-system "cd doc\\latex & make" or die "can't build LuaService.pdf";
+system "cd doc\\latex & make" and die "can't build LuaService.pdf";
 
