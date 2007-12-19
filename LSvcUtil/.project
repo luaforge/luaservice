@@ -66,4 +66,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.core.cnature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>lua5.1</name>
+			<type>2</type>
+			<locationURI>LuaRoot</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
