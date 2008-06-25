@@ -1,0 +1,393 @@
+Windows COMM API wrapper
+========================
+:Author:	Ross Berteig
+:Email:		ross@cheshireeng.com
+:Revision:	v0.01
+:Date:		June, 2008
+
+Introduction 
+------------ 
+This is a low-level wrapping of the Windows (specifically Win32)
+Communications Port API. The goal is to provide access to
+communications resources from scripting environments. The only
+targeted environment is Lua (http://www.lua.org/[]), but since SWIG
+(http://www.swig.org/[]) is used to construct the wrapper, support for
+other scripting languages is possible with only moderate effort.
+
+Functions wrapped and minimally tested
+--------------------------------------
+The following sections sketch out what functions are specifically
+provided by this wrapper. For actual documentation of the API
+functions, the official Platform SDK documentation should be
+consulted.
+
+Comm Structures and Types
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    LPCOMMCONFIG new_COMMCONFIG(int nProviderBytes)
+    LPDCB new_DCB(void)
+    LPCOMMTIMEOUTS new_COMMTIMEOUTS(void)
+    class intp
+	int intp:value()
+	void intp:assign(int)
+	intp intp()
+    class dwordp
+	int dwordp:value()
+	void dwordp:assign(int)
+	dwordp dwordp()
+
+
+Comm Configuration
+~~~~~~~~~~~~~~~~~~
+The following functions provide facets of user interaction with serial
+port configuration through DCB structures. Access is provided to the
+default DCB for a port. Also a means is provided to translate a simple
+string description of a port's configuation ("9600,n,8,1") and to
+present a dialog box for the user to specify the configuration.
+
+    BOOL CommConfigDialogA(LPCSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
+    BOOL GetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
+    BOOL SetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
+    BOOL BuildCommDCBA(LPCSTR lpDef, LPDCB lpDCB)
+    BOOL BuildCommDCBAndTimeoutsA(LPCSTR lpDef, LPDCB lpDCB, LPCOMMTIMEOUTS lpCommTimeouts)
+
+File handles
+~~~~~~~~~~~~
+The COMM API requires that a specific combination of options be
+provided when opening a HANDLE on the port. Since the standard
+io.open() function doesn't precisely map to those options, and since C
+stdio style buffered file handles are not really preferred for
+interaction with a communications channel, the following functions are
+provided. Open() is implemented with CreateFileA(), passing the
+required modes and flags. Close() is essentially just CloseHandle().
+ReadPort() and WritePort() implement unbuffered reads and writes on
+the HANDLE.
+
+    HANDLE Open(LPCSTR lpszPort)
+    BOOL Close(HANDLE h)
+    void ReadPort(HANDLE h, char *rbuffer, int *len)
+    BOOL WritePort(HANDLE h, char *wbuffer, int len, int *wrote)
+
+Comm Port Functions
+~~~~~~~~~~~~~~~~~~~ 
+The balance of the COMM API requires an open file handle to the port
+to be manipluated. Get a suitable handle from the Open() helper
+described in the previous section.
+
+These functions mostly provide support for configuring the hardware,
+and as such would normally be used once at the beginning of an
+application. Some query the status, or provide access to the hardware
+handshake signals and could be useful while actively communicating
+over an open port.
+
+    WINBASEAPI BOOL WINAPI ClearCommBreak(HANDLE);
+    WINBASEAPI BOOL WINAPI ClearCommError(HANDLE,PDWORD,LPCOMSTAT);
+    WINBASEAPI BOOL WINAPI EscapeCommFunction(HANDLE,DWORD);
+    WINBASEAPI BOOL WINAPI GetCommConfig(HANDLE,LPCOMMCONFIG,PDWORD);
+    WINBASEAPI BOOL WINAPI GetCommMask(HANDLE,PDWORD);
+    WINBASEAPI BOOL WINAPI GetCommModemStatus(HANDLE,PDWORD);
+    WINBASEAPI BOOL WINAPI GetCommProperties(HANDLE,LPCOMMPROP);
+    WINBASEAPI BOOL WINAPI GetCommState(HANDLE,LPDCB);
+    WINBASEAPI BOOL WINAPI GetCommTimeouts(HANDLE,LPCOMMTIMEOUTS);
+    WINBASEAPI BOOL WINAPI PurgeComm(HANDLE,DWORD);
+    WINBASEAPI BOOL WINAPI SetCommBreak(HANDLE);
+    WINBASEAPI BOOL WINAPI SetCommConfig(HANDLE,LPCOMMCONFIG,DWORD);
+    WINBASEAPI BOOL WINAPI SetCommMask(HANDLE,DWORD);
+    WINBASEAPI BOOL WINAPI SetCommState(HANDLE,LPDCB);
+    WINBASEAPI BOOL WINAPI SetCommTimeouts(HANDLE,LPCOMMTIMEOUTS);
+    WINBASEAPI BOOL WINAPI SetupComm(HANDLE,DWORD,DWORD);
+    WINBASEAPI BOOL WINAPI TransmitCommChar(HANDLE,char);
+
+Windows Error Codes
+~~~~~~~~~~~~~~~~~~~
+The following functions provide access to the Windows error code, and
+a simple translation of a system error code to text in some default
+language. SetLastError() is provided primarily to permit testing of
+GetLastError(), but might conceivably have some utility in a higher
+level module.
+
+    DWORD GetLastError(void)
+    void SetLastError(DWORD)
+    char *ErrorMessage(DWORD)
+
+
+Message boxes, beeps, and window handles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The API function that presents a serial port configuration dialog box
+requires that a window handle be referenced. The functions named
+Get*Window() listed below are provided to discover a suitable window
+handle. Because they were useful when testing the window handle
+functions, and might be useful in some real programs, wrappers are
+provided for MessageBeep() and MessageBoxA(). To make use of
+MessageBoxA() plausible, constant definitions are provided for
+constructing the value to pass in the uType parameter, and for
+interpreting the return value.
+
+    HWND GetActiveWindow(void)
+    HWND GetDesktopWindow(void)
+    HWND GetForegroundWindow(void)
+    BOOL MessageBeep(UINT uType)
+    int MessageBoxA(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
+
+These functions can be used to make noises and display simple
+messages. Since MessageBoxA() returns a code identifying which button
+was pushed, it can even be used to prompt the user in simple ways.
+
+NOTE: Real user interfaces should actually be built from an interface
+toolkit such as IUP or wxLua, not just as a sequence of message boxes.
+
+In addition to the above functions, the wrapper defines some constants
+to make specification of the message box type and interpretation of
+its return value easier.
+
+.Icon to show and sound to play:
++MB_ICONASTERISK+, +MB_ICONERROR+, +MB_ICONEXCLAMATION+,
++MB_ICONHAND+, +MB_ICONINFORMATION+, +MB_ICONSTOP+, +MB_ICONWARNING+ 
+
+.Buttons to show:
++MB_ABORTRETRYIGNORE+, +MB_CANCELTRYCONTINUE+, +MB_OK+, +MB_OKCANCEL+,
++MB_RETRYCANCEL+, +MB_YESNO+, +MB_YESNOCANCEL+  
+
+.Default button:
++MB_DEFBUTTON1+, +MB_DEFBUTTON2+, +MB_DEFBUTTON3+, +MB_DEFBUTTON4+
+
+.Return values:
++IDOK+, +IDCANCEL+, +IDABORT+, +IDRETRY+, +IDIGNORE+, +IDYES+, +IDNO+,
++IDCLOSE+, +IDHELP+, +IDTRYAGAIN+, +IDCONTINUE+
+
+The following code fragment demonstrates use of these functions to
+make noise, display messages, and collect feedback.
+
+[lua]
+source~~~~
+require"win32ser"
+b = win32ser.MessageBeep(0)		  -- Make a default noise
+b = win32ser.MessageBeep(MB_ICONERROR) -- Make the Error noise.
+hw = win32ser.GetForegroundWindow()    -- Foreground window
+
+-- show a simple warning message with only an Ok button
+button = win32ser.MessageBoxA(hw,
+	"This is a warning.", 
+	"Box Caption",
+	win32ser.MB_ICONWARNING + win32ser.MB_OK)
+assert(button == win32ser.MB_OK)
+
+-- ask a yes/no question showing Yes and No buttons
+button = win32ser.MessageBoxA(hw,
+	"Want to answer a question?", 
+	"Box Caption",
+	win32ser.MB_ICONINFORMATION + win32ser.MB_YESNO)
+assert(button == win32ser.MB_YES or button == win32ser.MB_NO)
+source~~~~
+
+Usage notes
+-----------
+
+Mode Strings
+~~~~~~~~~~~~
+The BuildCommDCB* functions take strings following the syntax of the
+MODE command.  These are documented by MODE /? and in documentation
+for the CMD.EXE command shell online at
+
+	http://technet.microsoft.com/en-us/library/bb490932(TechNet.10).aspx
+
+They also understand the older and simpler syntax inherited from
+MSDOS's MODE command as well. For example, "9600,N,8,1" in the old
+notation is equivalent to "baud=9600 parity=none data=8 stop=1" in the
+new notation.
+
+
+
+On Port Timeouts
+~~~~~~~~~~~~~~~~ 
+Read and write operations on a port can be configured to complete
+before the buffer is filled (reads) or sent (writes) through the
+COMMTIMEOUTS structure. Since this configuration can be part of a
+port's default configuration, you cannot count on the timeouts having
+the desired configuration if any other applications might have been
+using the COM port. While this is true for most COM port settings, the
+timeout settings are particularly easy to ignore and can cause
+confusing behavior if they are not as expected.
+
+The correct configuration of timeout values for a port is poorly
+documented by Microsoft. For clear cases such as no timeout at all,
+the operation is relatively self-explanitory. (i.e., Set all the
+timeout fields to 0 to cause all reads and writes to block until the
+exact byte couts are satisfied.) 
+
+
+[lua]
+source~~~~
+-- set a port for fully-blocking reads and writes.
+require "win32ser"
+
+function SetBlockingRW(h)
+    lpct = win32ser.new_COMMTIMEOUTS()
+    lpct.WriteTotalTimeoutMultiplier = 0
+    lpct.WriteTotalTimeoutConstant = 0
+    lpct.ReadTotalTimeoutMultiplier = 0
+    lpct.ReadTotalTimeoutConstant = 0
+    lpct.ReadIntervalTimeout = 0
+    win32ser.SetCommTimeouts(hp, lpct)
+end
+
+h = win32ser.Open("COM1")
+SetBlockingRW(h)
+buffer = CreateSomeHugeBuffer()
+win32ser.WritePort(h, buffer)
+win32ser.Close(h)
+source~~~~
+
+
+[lua]
+source~~~~
+-- set a port for non-blocking reads
+require "win32ser"
+
+function SetNonBlockingR(h)
+    lpct = win32ser.new_COMMTIMEOUTS()
+    win32ser.GetCommTimeouts(hp, lpct)
+    lpct.ReadTotalTimeoutMultiplier = MAXDWORD
+    lpct.ReadTotalTimeoutConstant = 1
+    lpct.ReadIntervalTimeout = MAXDWORD
+    win32ser.SetCommTimeouts(hp, lpct)
+end
+
+h = win32ser.Open("COM1")
+SetNonBlockingR(h)
+while true do
+    buffer = win32ser.ReadPort(h, 16)
+    if (buffer ~= nil and #buffer > 0) then
+	io.write(string.format("got %d bytes: %q\n", #buffer, buffer)
+	if buffer:match"Q" then break end
+    end
+end
+win32ser.Close(h)
+source~~~~
+
+
+Write timeouts are simply described. The 
+
+
+----
+-- timeout reads on empty buffer, writes after calculated
+-- time per byte (based on baud rate) plus a 100ms margin.
+-- New read timeout based on notes in MSDN, and appears to
+-- fix a problem where a few bytes could remain in the input
+-- FIFO when the remote transmitter went silent.
+local wttm = math.ceil(0.5 + 10*1000 / comdcb.BaudRate )
+serport.settimeouts(line.handle, {
+    WriteTotalTimeoutMultiplier = wttm,
+    WriteTotalTimeoutConstant = 100,
+    ReadTotalTimeoutMultiplier = MAXDWORD,
+    ReadTotalTimeoutConstant = 1,
+    ReadIntervalTimeout = MAXDWORD,
+})
+serport.setmask(line.handle, 0)	     -- clear the port's event mask
+serport.setbreak(line.handle, 0)     -- clear any BREAK condition
+----
+
+Samples
+~~~~~~~
+
+.+samples/t-msg.lua+
+[lua]
+source~~~~
+include::../samples/t-msg.lua[]
+source~~~~
+
+.+samples/t-ocrw.lua+
+[lua]
+source~~~~
+include::../samples/t-ocrw.lua[]
+source~~~~
+
+.+samples/t-bcdcb.lua+
+[lua]
+source~~~~
+include::../samples/t-bcdcb.lua[]
+source~~~~
+
+.+samples/t-configdlg.lua+
+[lua]
+source~~~~
+include::../samples/t-configdlg.lua[]
+source~~~~
+
+.+samples/t-dcb.lua+
+[lua]
+source~~~~
+include::../samples/t-dcb.lua[]
+source~~~~
+
+.+samples/t-getdefcc.lua+
+[lua]
+source~~~~
+include::../samples/t-getdefcc.lua[]
+source~~~~
+
+
+Tools
+-----
+The following tools have been used for development.
+
+* Cygwin with developer tools
+  - GCC
+  - SWIG
+* Lua
+* asciidoc from a Cygwin package
+  - DocBook from a Cygwin package
+  - FOP from Apache using JRE1.6 from Sun
+  - source-highlight from GnuWin32
+
+Asciidoc
+~~~~~~~~
+This documentation has been prepared with asciidoc, and specifically
+with the a2x driver script that combines asciidoc with the DocBook XSL
+templates to produce XSL-FO for processing with Apache FOP to get
+Adobe PDF. This is another in a series of experiments to find a
+documentation toolchain that is both compatible with a development
+environment including CVS and which can produce quality final output.
+Asciidoc has the interesting property that its markup language is
+extremely lightweight for normal text, and yet it provides access to
+most of the power of a full typesetting toolchain based on the DocBook
+standards.
+
+Use of the Lua source filter (or any language source filter, for that
+matter) requires that Gnu source-highlight be installed. This is not
+available as a Cygwin package, so the Windows binary was installed
+from the GnuWin32 project. That build has its default data folder
+compiled in as +c:/progra~1/Src-Highlite/share/source-highlight/+
+which is not friendly on installations that lack a C: drive, and
+assumes that the GnuWin32 package was installed in an unusual way.
+This was resolved by editing the asciidoc filter configuration file to
+add an explicit --data-dir option (naming a Windows path, not a Cygwin
+path) to the source-highlight command line.
+
+The asciidoc a2x toolchain driver assumes that FOP is properly
+installed and available as fop.sh somewhere on the path. It is also
+sensitive to the FOP version installed, and does not work with
+versions newer than 0.20.5 or so. This is likely to actually be an
+issue with the asciidoc implementation of XSL-FO, and realy should be
+fixed in asciidoc. The workaround is to install an old version of FOP
+and live with its idiosyncracies, which include the need to make sure
+JAVA_HOME is defined in the environment before fop.sh is invoked.
+
+SWIG Wrapper Generator
+~~~~~~~~~~~~~~~~~~~~~~
+SWIG provides all of the driving logic behind the construction of the
+wrapper. It allows a simple list of functions to wrap to be converted
+to C code that hides all of the messy details that glue that code to a
+hosting script language environment. For most of its targetted
+scripting languages, the resulting file can be simply compiled and
+linked into a DLL that can be loaded at runtime by a script that wants
+to use the wrapped capabilities.
+
+The Lua Language
+~~~~~~~~~~~~~~~~
+Lua is a nice, powerful, small, and easy to use language that is
+generally easily glued to C code that was originally designed to be
+called from Lua. However, gluing Lua to an arbitrary API would
+ordinarily require a lot of boiler-plate and repetitive code to be
+written, and SWIG nicely conceals all that behind its curtains.
+
