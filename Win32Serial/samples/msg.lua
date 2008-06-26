@@ -12,5 +12,5 @@ yesno = win32ser.MessageBoxA(hw,
 print("yesno", yesno)
 
 if not win32ser.MessageBeep(win32ser.MB_ICONASTERISK) then
-    print ("Error", win32ser.GetLastError())
+    print("Error", win32ser.GetLastError())
 end

@@ -8,7 +8,7 @@
  * Define some base windows types that are usually defined in windef.h
  */
 %import <windows.i>
-
+   
 /*
  * Serial API structures, imported as needed by hand from winbase.h so
  * that wrappers are actually generated. Those that have a length field
