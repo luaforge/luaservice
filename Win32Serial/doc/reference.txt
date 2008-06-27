@@ -32,6 +32,7 @@ for each.
     LPCOMMCONFIG new_COMMCONFIG(int nProviderBytes)
     LPDCB new_DCB(void)
     LPCOMMTIMEOUTS new_COMMTIMEOUTS(void)
+    LPCOMSTAT new_COMSTAT(void)
     class intp
 	int intp:value()
 	void intp:assign(int)

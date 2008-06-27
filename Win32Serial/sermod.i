@@ -88,7 +88,7 @@ typedef struct _COMM_CONFIG {
 } COMMCONFIG,*LPCOMMCONFIG;
 %inline %{
 LPCOMMCONFIG new_COMMCONFIG(int extra) {
-    size_t n = sizeof(COMMCONFIG) - 1 + extra;
+    size_t n = sizeof(COMMCONFIG) + extra;
     LPCOMMCONFIG lpcc = (LPCOMMCONFIG)calloc(1,n);
     if (!lpcc)
 	return NULL;
@@ -96,9 +96,6 @@ LPCOMMCONFIG new_COMMCONFIG(int extra) {
     return lpcc;
 }
 %}
-%clearnodefaultctor;
-
-
 
 typedef struct _COMMPROP {
 	WORD	wPacketLength;
@@ -120,6 +117,19 @@ typedef struct _COMMPROP {
 	DWORD	dwProvSpec2;
 	WCHAR	wcProvChar[1];
 } COMMPROP,*LPCOMMPROP;
+%inline %{
+    LPCOMMPROP new_COMMPROP(int extra) {
+	size_t n = sizeof(COMMPROP) + extra;
+	LPCOMMPROP lpcp = (LPCOMMPROP)calloc(1,n);
+	if (!lpcp)
+	    return NULL;
+	lpcp->wPacketLength = n;
+	return lpcp;
+    }
+%}
+%clearnodefaultctor;
+
+
 typedef struct _COMMTIMEOUTS {
 	DWORD ReadIntervalTimeout;
 	DWORD ReadTotalTimeoutMultiplier;
@@ -127,6 +137,8 @@ typedef struct _COMMTIMEOUTS {
 	DWORD WriteTotalTimeoutMultiplier;
 	DWORD WriteTotalTimeoutConstant;
 } COMMTIMEOUTS,*LPCOMMTIMEOUTS;
+
+
 typedef struct _COMSTAT {
 	DWORD fCtsHold:1;
 	DWORD fDsrHold:1;
