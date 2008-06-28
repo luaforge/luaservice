@@ -27,11 +27,11 @@ sermod_wrap_lua.o: sermod_wrap_lua.c
 win32ser.dll: sermod_wrap_lua.o Makefile
 	gcc -o $@ -shared -mno-cygwin -I$(LUAINC) sermod_wrap_lua.o $(LUADLL)  -lmsvcr80
 
-tests: win32ser.dll
-	lua t/runall.lua
+tests: dlls
+	LUA_CPATH="./serial_msvcr80/?.dll;$(LUA_CPATH)" lua t/runall.lua
 
 dirs: serial_msvcrt serial_msvcr80
-dlls: serial_msvcrt/win32ser.dll serial_msvcr80/win32ser.dll
+dlls: dirs serial_msvcrt/win32ser.dll serial_msvcr80/win32ser.dll
 
 serial_msvcrt:
 	[ ! -e  serial_msvcrt ] && mkdir serial_msvcrt

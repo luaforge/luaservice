@@ -26,7 +26,7 @@ end
 function TestLastError:test1()
     ser.SetLastError(0)
     assertEquals(ser.GetLastError(), 0)
-    local s = GetLastErrorString()
+    local s = assert(GetLastErrorString())
     assert(s:match("(operation completed successfully)"))
     --perror"ERROR_SUCCESS"
 end
@@ -51,28 +51,3 @@ function TestLastError:test4()
     --ser.SetLastError(3871)
     --perror"3871"
 end
-
---[==[
-h = ser.OpenPort("test.tmp")
-perror("open "..tostring(h))
-if (h) then
-    s = "hello,\000world.\r\n"
-    b,wrote = ser.WritePort(h, s)
-    perror("write "..tostring(b))
-    print("wrote "..wrote.." bytes")
-    b = ser.ClosePort(h)
-    perror("close "..tostring(b))
-end
-
-h = ser.OpenPort("test.tmp")
-perror("open "..tostring(h))
-if (h) then
-    s = ser.ReadPort(h, 1024)
-    perror("read "..tostring(s ~= nil))
-    print("got "..#s.." bytes")
-    b = ser.ClosePort(h)
-    perror("close "..tostring(b))
-end
-
-
---]==]
