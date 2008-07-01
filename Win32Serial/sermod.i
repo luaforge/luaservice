@@ -387,7 +387,7 @@ WINBASEAPI void WINAPI SetLastError(DWORD);
 %}
 
 #define MAXDWORD 0xffffffffUL
-
+#if 0
 WINBASEAPI BOOL WINAPI ClearCommBreak(HANDLE);
 WINBASEAPI BOOL WINAPI ClearCommError(HANDLE,DWORD*,LPCOMSTAT);
 WINBASEAPI BOOL WINAPI EscapeCommFunction(HANDLE,DWORD);
@@ -405,5 +405,114 @@ WINBASEAPI BOOL WINAPI SetCommState(HANDLE,LPDCB);
 WINBASEAPI BOOL WINAPI SetCommTimeouts(HANDLE,LPCOMMTIMEOUTS);
 WINBASEAPI BOOL WINAPI SetupComm(HANDLE,DWORD,DWORD);
 WINBASEAPI BOOL WINAPI TransmitCommChar(HANDLE,char);
+#endif
+
+%inline %{
+typedef struct {
+    HANDLE h;
+    /* int mode; */
+} HPORT;
+%}
+
+%extend HPORT {
+    HPORT() {
+	HPORT *hp = (HPORT *)malloc(sizeof(HPORT));
+	if (hp)
+	    hp->h = INVALID_HANDLE_VALUE;
+	return hp;
+    }
+
+    BOOL Close() {
+	if (self->h != INVALID_HANDLE_VALUE)
+	    return ClosePort(self->h);
+	return TRUE;
+    }
+    BOOL Open(LPCSTR lpszPort) {
+	HPORT_Close(self);
+	self->h = OpenPort(lpszPort);
+	if (!self->h)
+	    self->h = INVALID_HANDLE_VALUE;
+	return (self->h != INVALID_HANDLE_VALUE);
+    }
+   
+    HPORT(LPCSTR lpszPort) {
+	HPORT *hp = (HPORT *)malloc(sizeof(HPORT));
+	if (hp)
+	    HPORT_Open(hp,lpszPort);
+	return hp;
+    }
+    ~HPORT() {
+	HPORT_Close(self);
+	free(self);
+    }
+
+    BOOL Read(char *rbuffer, int *len) {
+	if (self->h != INVALID_HANDLE_VALUE)
+	    return ReadPort(self->h, rbuffer, len);
+	SetLastError(ERROR_INVALID_HANDLE);
+	return FALSE;
+    }
+    BOOL Write(char *wbuffer, int len, int *wrote) {
+	if (self->h != INVALID_HANDLE_VALUE)
+	    return WritePort(self->h, wbuffer, len, wrote);
+	SetLastError(ERROR_INVALID_HANDLE);
+	return FALSE;
+    }
+
+    BOOL ClearCommBreak() {
+	return ClearCommBreak(self->h);
+    }
+    BOOL ClearCommError(DWORD *pdw, LPCOMSTAT lpcs) {
+	return ClearCommError(self->h, pdw, lpcs);
+    }
+    BOOL EscapeCommFunction(DWORD dw) {
+	return EscapeCommFunction(self->h, dw);
+    }
+    BOOL GetCommConfig(LPCOMMCONFIG lpcc, DWORD *pdw) {
+	return GetCommConfig(self->h, lpcc, pdw);
+    }
+    BOOL GetCommMask(DWORD *pdw) {
+	return GetCommMask(self->h, pdw);
+    }
+    BOOL GetCommModemStatus(DWORD *pdw) {
+	return GetCommModemStatus(self->h, pdw);
+    }
+    BOOL GetCommProperties(LPCOMMPROP lpcp) {
+	return GetCommProperties(self->h, lpcp);
+    }
+    BOOL GetCommState(LPDCB dcb) {
+	return GetCommState(self->h, dcb);
+    }
+    BOOL GetCommTimeouts(LPCOMMTIMEOUTS lpct) {
+	return GetCommTimeouts(self->h, lpct);
+    }
+    BOOL PurgeComm(DWORD dw) {
+	return PurgeComm(self->h, dw);
+    }
+    BOOL SetCommBreak() {
+	return SetCommBreak(self->h);
+    }
+    BOOL SetCommConfig(LPCOMMCONFIG lpcc, DWORD dw) {
+	return SetCommConfig(self->h, lpcc, dw);
+    }
+    BOOL SetCommMask(DWORD dw) {
+	return SetCommMask(self->h, dw);
+    }
+    BOOL SetCommState(LPDCB dcb) {
+	return SetCommState(self->h, dcb);
+    }
+    BOOL SetCommTimeouts(LPCOMMTIMEOUTS lpct) {
+	return SetCommTimeouts(self->h, lpct);
+    }
+    BOOL SetupComm(DWORD dwInQueue, DWORD dwOutQueue) {
+	return SetupComm(self->h, dwInQueue, dwOutQueue);
+    }
+    BOOL TransmitCommChar(char c) {
+	return TransmitCommChar(self->h, c);
+    }
+}
+
+#ifdef SWIGLUA
+#endif
 
 %include "msgbox.i"

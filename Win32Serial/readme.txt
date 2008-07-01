@@ -23,21 +23,21 @@ system components.
 
 TODO
 ----
-The following is a sketchy list of things to do presented in no
-particular order:
+The following is a sketchy list of things to do presented in rough
+priority order:
 
-* Test cases for the remaining simple wrappers.
 * Finish Documentation
-* Lua module to clean up interface and make it more OO?
-* Or just make it more OO directly?
+* Update docs to reflect new oo HPORT class?
+* More luaunit cases to cover edges.
+* More useful constants and/or bitfield to/from sets mechanism
+* Test under IUP
 * Alpha release at LuaForge
-* Add support for overlapped read/write
 * Test under some lua thread support kit?
 * Test under LuaWindowsService?
-* Test under IUP
-* Send/Expect support?
-* Package for LforW
 * Demo application... port HexTerm?
+* Package for LforW... anything special to do?
+* Add support for overlapped read/write and waiting for completion
+* Support Send/Expect funcitonality with a lua module?
 
 
 Build Dependancies

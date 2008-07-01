@@ -9,25 +9,25 @@ TestSimpleMethods = _M
 -- tortured freely. If COM1 isn't a good victim, change the
 -- definition below:
 local port = "COM1"
-local h = nil
+local hp = nil
 
 function TestSimpleMethods:setUp()
-    h = assert(win32ser.OpenPort(port))
+    hp = assert(win32ser.new_HPORT(port))
 end
 function TestSimpleMethods:tearDown()
-    assert(h)
-    win32ser.ClosePort(h)
+    assert(hp)
+    assert(hp:Close())
 end
 
 function TestSimpleMethods:test01()
     local dcb = assert(win32ser.new_DCB())
-    assert(win32ser.GetCommState(h, dcb))
+    assert(hp:GetCommState(dcb))
     dcb.BaudRate = 1200
     dcb.ByteSize = 8
     dcb.Parity = win32ser.NOPARITY
     dcb.StopBits = win32ser.ONESTOPBIT
-    assert(win32ser.SetCommState(h, dcb))
-    assert(win32ser.GetCommState(h, dcb))
+    assert(hp:SetCommState( dcb))
+    assert(hp:GetCommState( dcb))
     assertEquals(dcb.BaudRate, 1200)
     assertEquals(dcb.ByteSize, 8)
     assertEquals(dcb.Parity, win32ser.NOPARITY)
@@ -36,13 +36,13 @@ end
 
 function TestSimpleMethods:test02()
     local status = assert(win32ser.dwordp())
-    assert(win32ser.GetCommModemStatus(h, status))
+    assert(hp:GetCommModemStatus( status))
 end
 
 function TestSimpleMethods:test03()
     local dw = assert(win32ser.dwordp())
     local cs = assert(win32ser.new_COMSTAT())
-    assert(win32ser.ClearCommError(h, dw, cs))
+    assert(hp:ClearCommError( dw, cs))
 end
 
 function TestSimpleMethods:test04()
@@ -71,52 +71,52 @@ end
 
 function TestSimpleMethods:test06()
     local lpct = assert(win32ser.new_COMMTIMEOUTS())
-    assert(win32ser.GetCommTimeouts(h, lpct))
+    assert(hp:GetCommTimeouts( lpct))
 end
 
 function TestSimpleMethods:test07()
     local lpct = assert(win32ser.new_COMMTIMEOUTS())
-    assert(win32ser.GetCommTimeouts(h, lpct))
+    assert(hp:GetCommTimeouts( lpct))
     lpct.WriteTotalTimeoutMultiplier = 1
-    assert(win32ser.SetCommTimeouts(h, lpct))
-    assert(win32ser.GetCommTimeouts(h, lpct))
+    assert(hp:SetCommTimeouts( lpct))
+    assert(hp:GetCommTimeouts( lpct))
     assertEquals(lpct.WriteTotalTimeoutMultiplier, 1)
     lpct.WriteTotalTimeoutMultiplier = 0
-    assert(win32ser.SetCommTimeouts(h, lpct))
-    assert(win32ser.GetCommTimeouts(h, lpct))
+    assert(hp:SetCommTimeouts( lpct))
+    assert(hp:GetCommTimeouts( lpct))
     assertEquals(lpct.WriteTotalTimeoutMultiplier, 0)
 end
 
 function TestSimpleMethods:test08()
-    assert(win32ser.ClearCommBreak(h))
+    assert(hp:ClearCommBreak(h))
 end
 function TestSimpleMethods:test09()
-    assert(win32ser.SetCommBreak(h))
-    assert(win32ser.ClearCommBreak(h))
+    assert(hp:SetCommBreak(h))
+    assert(hp:ClearCommBreak(h))
 end
 
 function TestSimpleMethods:test10()
     local dw = assert(win32ser.dwordp())
-    assert(win32ser.GetCommMask(h,dw))
+    assert(hp:GetCommMask(dw))
 end
 
 function TestSimpleMethods:test11()
     local dw = assert(win32ser.dwordp())
-    assert(win32ser.GetCommMask(h,dw))
-    assert(win32ser.SetCommMask(h,0))
-    assert(win32ser.GetCommMask(h,dw))
+    assert(hp:GetCommMask(dw))
+    assert(hp:SetCommMask(0))
+    assert(hp:GetCommMask(dw))
     assertEquals(dw:value(), 0)
 end
 
 function TestSimpleMethods:test12()
-    assert(win32ser.PurgeComm(h,0x0f))
+    assert(hp:PurgeComm(0x0f))
 end
 
 function TestSimpleMethods:test13()
     local lpcc = assert(win32ser.new_COMMCONFIG(32))
     local dw = assert(win32ser.dwordp())
     dw:assign(lpcc.dwSize)
-    assert(win32ser.GetCommConfig(h,lpcc,dw))
+    assert(hp:GetCommConfig(lpcc,dw))
     assertEquals(lpcc.dwSize, dw:value())
 end
 
@@ -125,39 +125,39 @@ function TestSimpleMethods:test14()
     local lpccFullSize = lpcc.dwSize
     local dw = assert(win32ser.dwordp())
     dw:assign(lpcc.dwSize)
-    assert(win32ser.GetCommConfig(h,lpcc,dw))
+    assert(hp:GetCommConfig(lpcc,dw))
     assertEquals(lpcc.dwSize, dw:value())
-    assert(win32ser.SetCommConfig(h,lpcc,lpcc.dwSize))
+    assert(hp:SetCommConfig(lpcc,lpcc.dwSize))
     assert(win32ser.GetDefaultCommConfig(port,lpcc,lpccFullSize))
     assert(win32ser.SetDefaultCommConfig(port,lpcc,lpcc.dwSize))
 end
 
 function TestSimpleMethods:test15()
     local lpcp = assert(win32ser.new_COMMPROP(0))
-    assert(win32ser.GetCommProperties(h,lpcp))
+    assert(hp:GetCommProperties(lpcp))
 end
 
 
 function TestSimpleMethods:test16()
-    assert(win32ser.SetupComm(h,0,0))
+    assert(hp:SetupComm(0,0))
 end
 
 
 function TestSimpleMethods:test17()
-    assert(win32ser.SetupComm(h,1024,1024))
+    assert(hp:SetupComm(1024,1024))
 end
 
 
 function TestSimpleMethods:test18()
-    assert(win32ser.TransmitCommChar(h,"A"))
+    assert(hp:TransmitCommChar("A"))
 end
 
 
 function TestSimpleMethods:test19()
-    assert(win32ser.EscapeCommFunction(h,9))
+    assert(hp:EscapeCommFunction(9))
 end
 
 
 function TestSimpleMethods:test19()
-    assert(win32ser.EscapeCommFunction(h,6))
+    assert(hp:EscapeCommFunction(6))
 end
