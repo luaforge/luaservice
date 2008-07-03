@@ -4,7 +4,7 @@ require "win32ser"
 function GetDCD(h)
     assert(h)
     local status = win32ser.dwordp()
-    win32ser.GetCommModemStatus(h, status)
+    h:GetCommModemStatus(status)
     return (status:value() % 256) >= 128  -- (MS_RLSD_ON) test for DCD signal
     --status = hex.bitand(status, 0x80) == 0x80
     --return status
@@ -13,24 +13,30 @@ end
 -- set the state of DTR
 function SetDTR(h, state)
     local comdcb = win32ser.new_DCB()
-    assert(win32ser.GetCommState(h, comdcb))
+    assert(h:GetCommState(comdcb))
     comdcb.fDtrControl = state and win32ser.DTR_CONTROL_ENABLE or win32ser.DTR_CONTROL_DISABLE
-    assert(win32ser.SetCommState(h, comdcb))
+    assert(h:SetCommState(comdcb))
 end
 
 -- setup a com port for testing
 function SetupPort(h)
     local dcb = win32ser.new_DCB()
 
-    assert(win32ser.GetCommState(h, dcb))
+    h:SetupComm(65536,65536)	-- suggest driver buffer sizes
+    h:PurgeComm(15)		-- purge any pending data
+    local stat = win32ser.new_COMSTAT()
+    local err = win32ser.dwordp()
+    h:ClearCommError(err, stat)
+    
+    assert(h:GetCommState(dcb))
     dcb.fParity = 0
     dcb.fOutxCtsFlow = 0
     dcb.fOutxDsrFlow = 0
     dcb.fDtrControl = win32ser.DTR_CONTROL_DISABLE
     dcb.fDsrSensitivity = 0
     dcb.fTXContinueOnXoff = 0
-    dcb.fOutX = 0
-    dcb.fInX = 0
+    dcb.fOutX = 1
+    dcb.fInX = 1
     dcb.fErrorChar = 0
     dcb.fNull = 0
     dcb.fRtsControl = win32ser.RTS_CONTROL_DISABLE
@@ -40,16 +46,16 @@ function SetupPort(h)
     dcb.Parity = win32ser.NOPARITY
     dcb.StopBits = win32ser.ONESTOPBIT
 
-    assert(win32ser.SetCommState(h, dcb))
-    assert(win32ser.SetCommMask(h, 0))
-    assert(win32ser.ClearCommBreak(h, 0))
+    assert(h:SetCommState(dcb))
+    assert(h:SetCommMask(0))
+    assert(h:ClearCommBreak(0))
     return dcb
 end
 
 -- get the configured baud rate
 function BaudRate(h)
     local dcb = win32ser.new_DCB()
-    assert(win32ser.GetCommState(h, dcb))
+    assert(h:GetCommState(dcb))
     return dcb.BaudRate
 end
 
@@ -61,7 +67,7 @@ function SetBlockingRW(h)
     lpct.ReadTotalTimeoutMultiplier = 0
     lpct.ReadTotalTimeoutConstant = 0
     lpct.ReadIntervalTimeout = 0
-    win32ser.SetCommTimeouts(hp, lpct)
+    h:SetCommTimeouts(lpct)
 end
 
 -- change read timeouts to return available characters almost
@@ -71,11 +77,11 @@ end
 function SetNonBlockingR(h)
     local MAXDWORD = 0xFFFFFFFF	-- largest 32-bit unsigned integer
     lpct = win32ser.new_COMMTIMEOUTS()
-    win32ser.GetCommTimeouts(h, lpct)
+    h:GetCommTimeouts(lpct)
     lpct.ReadTotalTimeoutMultiplier = MAXDWORD
     lpct.ReadTotalTimeoutConstant = 1
     lpct.ReadIntervalTimeout = MAXDWORD
-    win32ser.SetCommTimeouts(h, lpct)
+    h:SetCommTimeouts(lpct)
 end
 
 -- set read and write timeouts scaled to the port's current baud
@@ -92,16 +98,16 @@ function SetTimedRW(h, interval)
     lpct.ReadTotalTimeoutMultiplier = ttm
     lpct.ReadTotalTimeoutConstant = 1
     lpct.ReadIntervalTimeout = interval and math.ceil(0.5 + interval*1000 / baud ) or 0
-    assert(win32ser.SetCommTimeouts(h, lpct))
+    assert(h:SetCommTimeouts(lpct))
 end
 
 -- set write timeout to block the caller.
 function SetBlockingW(h)
     lpct = win32ser.new_COMMTIMEOUTS()
-    win32ser.GetCommTimeouts(h, lpct)
+    h:GetCommTimeouts(lpct)
     lpct.WriteTotalTimeoutMultiplier = 0
     lpct.WriteTotalTimeoutConstant = 0
-    win32ser.SetCommTimeouts(h, lpct)
+    h:SetCommTimeouts(lpct)
 end
 
 -- accept com port names from the command line, defaulting
@@ -110,9 +116,9 @@ end
 local port1 = arg[1] or [[COM1]]
 local port2 = arg[2] or [[COM2]]
 
-local h1 = assert(win32ser.OpenPort(port1))
+local h1 = assert(win32ser.HPORT(port1))
 assert(SetupPort(h1))
-local h2 = assert(win32ser.OpenPort(port2))
+local h2 = assert(win32ser.HPORT(port2))
 assert(SetupPort(h2))
 
 SetNonBlockingR(h1)
@@ -137,13 +143,16 @@ row(false, true)
 row(true, false)
 row(true, true)
 
--- Make a string value containing all 256 possible 8-bit
--- ascii codes.
+-- Make a string value containing all 192 possible 8-bit
+-- ascii codes that are not control characters
 local ascii = nil
 do
     local t = {}
-    for i=1,256,2 do
-	t[#t+1] = string.char(i-1,i)
+    for i=32,127 do
+	t[#t+1] = string.char(i)
+    end
+    for i=128+32,255 do
+	t[#t+1] = string.char(i)
     end
     ascii = table.concat(t)
 end
@@ -163,20 +172,27 @@ local f = logfile and assert(io.open(logfile,"wb"))
 
 -- collect and account for received bytes.
 local got = {}
-local function collect(buf)
-    if buf and #buf > 0 then
-	got[#got+1] = buf
-	if f then f:write(buf) end
-	total = total + #buf
+do
+    local stat = win32ser.new_COMSTAT()
+    local err = win32ser.dwordp()
+    function collect(h)
+	h:ClearCommError(err, stat)
+	local buf = h:Read(1024)
+	if buf and #buf > 0 then
+	    got[#got+1] = buf
+	    if f then f:write(buf) end
+	    total = total + #buf
+	end
+	return buf, err, stat.cbInQue
     end
 end
 
 -- loop n times, sending the big string and collecting any
 -- available received characters
+local buf,err,cbin
 for i=1,n do
-    assert(win32ser.WritePort(h1, big))
-    buf = assert(win32ser.ReadPort(h2, 1024))
-    collect(buf)
+    assert(h1:Write(big))
+    buf,err,cbin = assert(collect(h2))
     io.write(buf and #buf>0 and '+' or '.')
 end
 
@@ -185,26 +201,16 @@ io.write('\n')
 print("Drain FIFO:", ((n*#big)-total) .. " bytes to go")
 SetTimedRW(h2, 20)
 for i=1,n do
-    buf = assert(win32ser.ReadPort(h2, 1024))
-    collect(buf)
+    buf,err,cbin = assert(collect(h2))
     io.write(buf and #buf>0 and '+' or '.')
 end
-
---[[
--- do a final read with a timeout to drain the FIFO dry
-SetTimedRW(h2, 20)
-buf = assert(win32ser.ReadPort(h2, 1024))
-collect(buf)
-io.write(buf and #buf>0 and '+' or '.')
-if f then f:close() end
---]]
 
 -- validate the receieved data
 got = table.concat(got)
 io.write('\n')
-print("sent "..(n*#big)..", received "..#got)
+print("sent "..(n*#big)..", received "..#got.." cbin "..cbin)
 print("received buffer begins correctly: " .. tostring(big == got:sub(1,#big)))
 
 -- close the port handles
-assert(win32ser.ClosePort(h1))
-assert(win32ser.ClosePort(h2))
+assert(h1:Close())
+assert(h2:Close())

@@ -2,17 +2,18 @@ Windows COMM API wrapper
 ========================
 :Author:	Ross Berteig
 :Email:		ross@cheshireeng.com
-:Revision:	v0.01
-:Date:		June, 2008
+:Revision:	v0.02
+:Date:		July, 2008
 
 Introduction 
 ------------ 
 This is a low-level wrapping of the Windows (specifically Win32)
 Communications Port API. The goal is to provide access to
 communications resources from scripting environments. The only
-targeted environment is Lua (http://www.lua.org/[]), but since SWIG
-(http://www.swig.org/[]) is used to construct the wrapper, support for
-other scripting languages is possible with only moderate effort.
+targeted scripting environment is Lua (http://www.lua.org/[]), but
+since SWIG (http://www.swig.org/[]) is used to construct the wrapper,
+support for other scripting languages is possible with only moderate
+effort.
 
 Functions wrapped and minimally tested
 --------------------------------------
@@ -51,34 +52,51 @@ default DCB for a port. Also a means is provided to translate a simple
 string description of a port's configuation ("9600,n,8,1") and to
 present a dialog box for the user to specify the configuration.
 
-    BOOL CommConfigDialogA(LPCSTR lpszName, HWND hWnd, LPCOMMCONFIG lpCC)
+    BOOL CommConfigDialog(LPCSTR lpszName, LPCOMMCONFIG lpCC)
     BOOL GetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
     BOOL SetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
-    BOOL BuildCommDCBA(LPCSTR lpDef, LPDCB lpDCB)
-    BOOL BuildCommDCBAndTimeoutsA(LPCSTR lpDef, LPDCB lpDCB, LPCOMMTIMEOUTS lpCommTimeouts)
+    LPDCB BuildCommDCB(LPCSTR lpDef)
+    BOOL BuildCommDCBAndTimeouts(LPCSTR lpDef, LPDCB lpDCB, LPCOMMTIMEOUTS lpCommTimeouts) 
+
+Several of these functions has been simplified from the raw Windows
+API. In particular, CommConfigDialog() assumes that
+GetForegroundWindow() will supply a sensible HWND, and BuildCommDCB()
+returns a new DCB object rather than requiring that an existing one be
+supplied.
 
 File Handles
 ~~~~~~~~~~~~
+
 The COMM API requires that a specific combination of options be
-provided when opening a HANDLE on the port. Since the standard
+provided when opening a Windows HANDLE on the port. Since the standard
 io.open() function doesn't precisely map to those options, and since C
 stdio style buffered file handles are not really preferred for
-interaction with a communications channel, the following functions are
-provided. OpenPort() is implemented with CreateFileA(), passing the
-required modes and flags. ClosePort() is essentially just
-CloseHandle().  ReadPort() and WritePort() implement unbuffered reads
-and writes on the HANDLE.
+interaction with a communications channel, an HPORT class is defined
+containing a Windows HANDLE. An HPORT can be created in a closed state
+by calling HPORT() or in an open state by calling HPORT(portname). The
+HPORT class implements methods Open(), Close(), Read(), and Write(),
+along with methods for all of the Windows Comm API functions that
+require an open HANDLE on a communications device.
+
+Also, the following functions are provided that explicitly use Windows
+HANDLEs. OpenPort() is implemented with CreateFileA(), passing the
+required modes and flags, but returning NULL in place of
+INVALID_HANDLE_VALUE on failure. ClosePort() is essentially just
+CloseHandle(). ReadPort() and WritePort() implement unbuffered reads
+and writes on the HANDLE. These functions are used to implement the
+corresponding methods of the HPORT class.
 
     HANDLE OpenPort(LPCSTR lpszPort)
     BOOL ClosePort(HANDLE h)
     void ReadPort(HANDLE h, char *rbuffer, int *len)
     BOOL WritePort(HANDLE h, char *wbuffer, int len, int *wrote)
 
-Comm Port Functions
+HPORT class Methods
 ~~~~~~~~~~~~~~~~~~~ 
 The balance of the COMM API requires an open file handle to the port
-to be manipluated. Get a suitable handle from the OpenPort() helper
-described in the previous section.
+to be manipluated. Get a suitable handle from the HPORT() function
+with or without a port name as its argument as described in the
+previous section.
 
 These functions mostly provide support for configuring the hardware,
 and as such would normally be used once at the beginning of an
@@ -86,23 +104,23 @@ application. Some query the status, or provide access to the hardware
 handshake signals and could be useful while actively communicating
 over an open port.
 
-    WINBASEAPI BOOL WINAPI ClearCommBreak(HANDLE);
-    WINBASEAPI BOOL WINAPI ClearCommError(HANDLE,PDWORD,LPCOMSTAT);
-    WINBASEAPI BOOL WINAPI EscapeCommFunction(HANDLE,DWORD);
-    WINBASEAPI BOOL WINAPI GetCommConfig(HANDLE,LPCOMMCONFIG,PDWORD);
-    WINBASEAPI BOOL WINAPI GetCommMask(HANDLE,PDWORD);
-    WINBASEAPI BOOL WINAPI GetCommModemStatus(HANDLE,PDWORD);
-    WINBASEAPI BOOL WINAPI GetCommProperties(HANDLE,LPCOMMPROP);
-    WINBASEAPI BOOL WINAPI GetCommState(HANDLE,LPDCB);
-    WINBASEAPI BOOL WINAPI GetCommTimeouts(HANDLE,LPCOMMTIMEOUTS);
-    WINBASEAPI BOOL WINAPI PurgeComm(HANDLE,DWORD);
-    WINBASEAPI BOOL WINAPI SetCommBreak(HANDLE);
-    WINBASEAPI BOOL WINAPI SetCommConfig(HANDLE,LPCOMMCONFIG,DWORD);
-    WINBASEAPI BOOL WINAPI SetCommMask(HANDLE,DWORD);
-    WINBASEAPI BOOL WINAPI SetCommState(HANDLE,LPDCB);
-    WINBASEAPI BOOL WINAPI SetCommTimeouts(HANDLE,LPCOMMTIMEOUTS);
-    WINBASEAPI BOOL WINAPI SetupComm(HANDLE,DWORD,DWORD);
-    WINBASEAPI BOOL WINAPI TransmitCommChar(HANDLE,char);
+    WINBASEAPI BOOL WINAPI HPORT:ClearCommBreak();
+    WINBASEAPI BOOL WINAPI HPORT:ClearCommError(PDWORD,LPCOMSTAT);
+    WINBASEAPI BOOL WINAPI HPORT:EscapeCommFunction(DWORD);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommConfig(LPCOMMCONFIG,PDWORD);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommMask(PDWORD);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommModemStatus(PDWORD);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommProperties(LPCOMMPROP);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommState(LPDCB);
+    WINBASEAPI BOOL WINAPI HPORT:GetCommTimeouts(LPCOMMTIMEOUTS);
+    WINBASEAPI BOOL WINAPI HPORT:PurgeComm(DWORD);
+    WINBASEAPI BOOL WINAPI HPORT:SetCommBreak();
+    WINBASEAPI BOOL WINAPI HPORT:SetCommConfig(LPCOMMCONFIG,DWORD);
+    WINBASEAPI BOOL WINAPI HPORT:SetCommMask(DWORD);
+    WINBASEAPI BOOL WINAPI HPORT:SetCommState(LPDCB);
+    WINBASEAPI BOOL WINAPI HPORT:SetCommTimeouts(LPCOMMTIMEOUTS);
+    WINBASEAPI BOOL WINAPI HPORT:SetupComm(DWORD,DWORD);
+    WINBASEAPI BOOL WINAPI HPORT:TransmitCommChar(char);
 
 Windows Error Codes
 ~~~~~~~~~~~~~~~~~~~
@@ -124,27 +142,22 @@ requires that a window handle be referenced. The functions named
 Get...Window() listed below are provided to discover a suitable window
 handle. Because they were useful when testing the window handle
 functions, and might be useful in some real programs, wrappers are
-provided for MessageBeep() and MessageBoxA(). To make use of
-MessageBoxA() plausible, constant definitions are provided for
+provided for MessageBeep() and MessageBox(). To make use of
+MessageBox() plausible, constant definitions are provided for
 constructing the value to pass in the uType parameter, and for
 interpreting the return value.
 
-    HWND GetActiveWindow(void)
-    HWND GetDesktopWindow(void)
-    HWND GetForegroundWindow(void)
     BOOL MessageBeep(UINT uType)
-    int MessageBoxA(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
+    int MessageBox(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 
 These functions can be used to make noises and display simple
-messages. Since MessageBoxA() returns a code identifying which button
+messages. Since MessageBox() returns a code identifying which button
 was pushed, it can even be used to prompt the user in simple ways.
 
 NOTE: Real user interfaces should actually be built from an interface
 toolkit such as IUP or wxLua, not just as a sequence of message boxes.
 
-In addition to the above functions, the wrapper defines some constants
-to make specification of the message box type and interpretation of
-its return value easier.
+The message box type and return value constants defined include:
 
 .Icon to show and sound to play:
 +MB_ICONASTERISK+, +MB_ICONERROR+, +MB_ICONEXCLAMATION+,
@@ -167,19 +180,18 @@ make noise, display messages, and collect feedback.
 [lua]
 source~~~~
 require"win32ser"
-b = win32ser.MessageBeep(0)		  -- Make a default noise
+b = win32ser.MessageBeep(0)            -- Make a default noise
 b = win32ser.MessageBeep(MB_ICONERROR) -- Make the Error noise.
-hw = win32ser.GetForegroundWindow()    -- Foreground window
 
 -- show a simple warning message with only an Ok button
-button = win32ser.MessageBoxA(hw,
+button = win32ser.MessageBox(
 	"This is a warning.", 
 	"Box Caption",
 	win32ser.MB_ICONWARNING + win32ser.MB_OK)
 assert(button == win32ser.MB_OK)
 
 -- ask a yes/no question showing Yes and No buttons
-button = win32ser.MessageBoxA(hw,
+button = win32ser.MessageBoxA(
 	"Want to answer a question?", 
 	"Box Caption",
 	win32ser.MB_ICONINFORMATION + win32ser.MB_YESNO)
@@ -195,13 +207,15 @@ The BuildCommDCB* functions take strings following the syntax of the
 MODE command.  These are documented by MODE /? and in documentation
 for the CMD.EXE command shell online at
 
-	http://technet.microsoft.com/en-us/library/bb490932(TechNet.10).aspx
+http://technet.microsoft.com/en-us/library/bb490932(TechNet.10).aspx[]
 
 They also understand the older and simpler syntax inherited from
 MSDOS's MODE command as well. For example, "9600,N,8,1" in the old
 notation is equivalent to "baud=9600 parity=none data=8 stop=1" in the
 new notation.
 
+Note that the new notation requires that the parameters baud, parity,
+data, and stop must be specified by the string.
 
 
 On Port Timeouts
@@ -381,12 +395,16 @@ include::../samples/loopback.lua[]
 source~~~~
 
 .+samples/msg.lua+
-This code demonstrates the use of MessageBoxA().
+This code demonstrates the use of MessageBox().
 
 [lua]
 source~~~~
 include::../samples/msg.lua[]
 source~~~~
+
+
+.+samples/props.lua+
+This code demonstrates the values returned from GetCommProps().
 
 
 Tools

@@ -55,6 +55,17 @@ LPDCB new_DCB(void) {
     pdcb->DCBlength = n;
     return pdcb;
 }
+#undef BuildCommDCB
+LPDCB BuildCommDCB(LPCSTR mode) {
+    LPDCB dcb = new_DCB();
+    if (BuildCommDCBA(mode, dcb))
+	return dcb;
+    free(dcb);
+    return NULL;
+}
+
+
+
 %}
 #define DTR_CONTROL_DISABLE	0
 #define DTR_CONTROL_ENABLE	1
@@ -163,10 +174,15 @@ typedef struct _COMSTAT {
 %apply bool {BOOL};
 #endif
 
-WINBASEAPI BOOL WINAPI BuildCommDCBA(LPCSTR,LPDCB);
-WINBASEAPI BOOL WINAPI BuildCommDCBAndTimeoutsA(LPCSTR,LPDCB,LPCOMMTIMEOUTS);
-WINBASEAPI BOOL WINAPI CommConfigDialogA(LPCSTR,HWND,LPCOMMCONFIG);
 %inline %{
+#undef BuildCommDCBAndTimeouts
+    WINBASEAPI BOOL WINAPI BuildCommDCBAndTimeouts(LPCSTR mode, LPDCB dcb, LPCOMMTIMEOUTS lpct) {
+	return BuildCommDCBAndTimeoutsA(mode,dcb,lpct);
+    }
+#undef CommConfigDialog
+    WINBASEAPI BOOL WINAPI CommConfigDialog(LPCSTR port, LPCOMMCONFIG lpCC) {
+	return CommConfigDialogA(port, GetForegroundWindow(), lpCC);
+    }
 #undef GetDefaultCommConfig
     WINBASEAPI BOOL WINAPI GetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC) {
 	DWORD dw = lpCC->dwSize;

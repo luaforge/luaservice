@@ -76,5 +76,19 @@
 WINUSERAPI HWND WINAPI GetActiveWindow(void);
 WINUSERAPI HWND WINAPI GetDesktopWindow(void);
 WINUSERAPI HWND WINAPI GetForegroundWindow(void);
+WINUSERAPI int WINAPI  MessageBoxA(HWND hw,LPCSTR msg, LPCSTR title, UINT flags);
+
 WINUSERAPI BOOL WINAPI MessageBeep(UINT);
-WINUSERAPI int WINAPI  MessageBoxA(HWND,LPCSTR,LPCSTR,UINT);
+
+%inline %{
+#undef MessageBox
+    WINUSERAPI int WINAPI MessageBox(LPCSTR msg, LPCSTR title, UINT flags) {
+	if ((flags & MB_ICONMASK) == 0)
+	    flags |= MB_ICONINFORMATION;
+	MessageBoxA(GetForegroundWindow(),
+		    msg,
+		    title,
+		    flags);
+    }
+%}
+
