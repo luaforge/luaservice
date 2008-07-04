@@ -30,18 +30,80 @@ convenient support for references to int and DWORD values. These
 structures (and pointers to them) are provided along with constructors
 for each.
 
-    LPCOMMCONFIG new_COMMCONFIG(int nProviderBytes)
-    LPDCB new_DCB(void)
-    LPCOMMTIMEOUTS new_COMMTIMEOUTS(void)
-    LPCOMSTAT new_COMSTAT(void)
-    class intp
-	int intp:value()
-	void intp:assign(int)
-	intp intp()
-    class dwordp
-	int dwordp:value()
-	void dwordp:assign(int)
-	dwordp dwordp()
++win32ser.new_COMMCONFIG(nProviderBytes)+
+
+Construct and return a Windows COMMCONFIG structure, with room for
+_nProviderBytes_ additional provider-specific information. The return
+value is either a COMMCONFIG in a userdata or nil if an error
+occurred. In case of error, use +win32ser.GetLastError()+ to get the
+Windows error code, and +win32ser.ErrorMessage()+ to translate it to
+text.
+
+The returned userdata simulates a table with keys for each named
+member of the structure.
+
+
++win32ser.new_DCB()+
+
+Construct and return a Windows DCB structure.
+
+The returned userdata simulates a table with keys for each named
+member of the structure.
+
++win32ser.new_COMMPROP(extra)+
+
+Construct and return a Windows COMMPROP structure, with room for
+_extra_ additional provider-specific information. The return value is
+either a COMMPROP in a userdata or nil if an error occurred. In case
+of error, use +win32ser.GetLastError()+ to get the Windows error code,
+and +win32ser.ErrorMessage()+ to translate it to text.
+
+The returned userdata simulates a table with keys for each named
+member of the structure.
+
+
++win32ser.new_COMMTIMEOUTS()+
+
+Construct and return a Windows COMMTIMEOUTS structure.
+
+The returned userdata simulates a table with keys for each named
+member of the structure.
+
+
++win32ser.new_COMSTAT()+
+
+Construct and return a Windows COMSTAT structure.
+
+The returned userdata simulates a table with keys for each named
+member of the structure.
+
++win32ser.intp()+
+
+Construct and return an object that can be used as an integer passed
+by reference.
+
++intp:assign(n)+
+
+Set the current value held by the intp object to _n_. 
+
++intp:value()+
+
+Discover the current value held by the intp object. 
+
+
++win32ser.dwordp()+
+
+Construct and return an object that can be used as a DWORD passed
+by reference.
+
++dwordp:assign(n)+
+
+Set the current value held by the dwordp object to _n_. 
+
++dwordp:value()+
+
+Discover the current value held by the dwordp object. 
+
 
 
 Comm Configuration
@@ -49,34 +111,75 @@ Comm Configuration
 The following functions provide facets of user interaction with serial
 port configuration through DCB structures. Access is provided to the
 default DCB for a port. Also a means is provided to translate a simple
-string description of a port's configuation ("9600,n,8,1") and to
+string description of a port's configuration ("9600,n,8,1") and to
 present a dialog box for the user to specify the configuration.
 
-    BOOL CommConfigDialog(LPCSTR lpszName, LPCOMMCONFIG lpCC)
-    BOOL GetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
-    BOOL SetDefaultCommConfig(LPCSTR lpszName, LPCOMMCONFIG lpCC)
-    LPDCB BuildCommDCB(LPCSTR lpDef)
-    BOOL BuildCommDCBAndTimeouts(LPCSTR lpDef, LPDCB lpDCB, LPCOMMTIMEOUTS lpCommTimeouts) 
+Several of these functions have been simplified from the raw Windows
+API. In particular, +win32ser.CommConfigDialog()+ assumes that the
+Windows API GetForegroundWindow() will supply a sensible HWND, and
++win32ser.BuildCommDCB()+ returns a new DCB object rather than
+requiring that an existing one be supplied by the caller.
 
-Several of these functions has been simplified from the raw Windows
-API. In particular, CommConfigDialog() assumes that
-GetForegroundWindow() will supply a sensible HWND, and BuildCommDCB()
-returns a new DCB object rather than requiring that an existing one be
-supplied.
++win32ser.CommConfigDialog(port, CC)+
+
+Display the driver's configuration dialog for the device named by
+_port_, initially displaying the configuration specified in the
+COMMCONFIG object CC. If the user clicked Ok, CC is updated to reflect
+any changes made by the user.
+
+Get a suitable COMMCONFIG object from +win32ser.new_COMMCONFIG()+.
+
+The return value is true on success, or false on error.
+
++win32ser.GetDefaultCommConfig(name, CC)+
+
+Fill the COMMCONFIG object CC with the default configuration of the
+device named by _port_.
+
+Get a suitable COMMCONFIG object from +win32ser.new_COMMCONFIG()+.
+
+The return value is true on success, or false on error.
+
++win32ser.SetDefaultCommConfig(port, CC)+
+
+the default configuration of the device named by _port_ from the
+settings in the COMMCONFIG object CC.
+
+Get a suitable COMMCONFIG object from +win32ser.new_COMMCONFIG()+.
+
+The return value is true on success, or false on error.
+
++win32ser.BuildCommDCB(mode)+
+
+Create a new DCB object and initialize it from the string _mode_.
+
+The new DCB is returned on success, or nil on error.
+
++win32ser.BuildCommDCBAndTimeouts(mode, dcb, CTO)+
+
+Initialize a DCB object _dcb_ and COMMTIMEOUTS object _CTO_ from the
+string _mode_.
+
+Get a suitable DCB object from +win32ser.new_DCB()+ or
++win32ser.BuildCommDCB()+.
+
+Get a suitable COMMTIMEOUTS object from +win32ser.new_COMMTIMEOUTS()+.
+
+The return value is true on success, or false on error.
 
 File Handles
 ~~~~~~~~~~~~
-
 The COMM API requires that a specific combination of options be
 provided when opening a Windows HANDLE on the port. Since the standard
 io.open() function doesn't precisely map to those options, and since C
 stdio style buffered file handles are not really preferred for
 interaction with a communications channel, an HPORT class is defined
 containing a Windows HANDLE. An HPORT can be created in a closed state
-by calling HPORT() or in an open state by calling HPORT(portname). The
-HPORT class implements methods Open(), Close(), Read(), and Write(),
-along with methods for all of the Windows Comm API functions that
-require an open HANDLE on a communications device.
+by calling HPORT() or in an open state by calling
++win32ser.HPORT(name)+. The HPORT class implements methods Open(),
+Close(), Read(), and Write(), along with methods for all of the
+Windows Comm API functions that require an open HANDLE on a
+communications device.
 
 Also, the following functions are provided that explicitly use Windows
 HANDLEs. OpenPort() is implemented with CreateFileA(), passing the
@@ -86,15 +189,45 @@ CloseHandle(). ReadPort() and WritePort() implement unbuffered reads
 and writes on the HANDLE. These functions are used to implement the
 corresponding methods of the HPORT class.
 
-    HANDLE OpenPort(LPCSTR lpszPort)
-    BOOL ClosePort(HANDLE h)
-    void ReadPort(HANDLE h, char *rbuffer, int *len)
-    BOOL WritePort(HANDLE h, char *wbuffer, int len, int *wrote)
++win32ser.OpenPort(name)+
+
+Open a Windows HANDLE suitable for use with the Comm API on the
+communications device identified by _name_.
+
+Returns a valid HANDLE, or nil.
+
++win32ser.ClosePort(h)+
+
+Close the Windows HANDLE _h_.
+
+Returns true on success, or false on error.
+
++win32ser.ReadPort(h, len)+
+
+Read up to _len_ bytes from the open port _h_. Returns a string
+containing at most _len_ characters (which may contain any 8-bit
+characters including NUL) or nil on error. If no characters were
+available and the port is configured to time out, then the return
+value may be an empty string which should not be confused with
+returning nil.
+
++win32ser.WritePort(h, buffer, wrote)+
+
+Write bytes from the string _buffer_ (which may contain any 8-bit
+characters including NUL) to the open port _h_. The number of bytes
+actually written is set in the parameter _wrote_ which should be an
+intp object.
+
+Get a suitable intp object from +win32ser.intp()+, and discover the
+number of bytes written as +wrote:value()+.
+
+Returns true on success, or false on error.
+
 
 HPORT class Methods
 ~~~~~~~~~~~~~~~~~~~ 
 The balance of the COMM API requires an open file handle to the port
-to be manipluated. Get a suitable handle from the HPORT() function
+to be manipulated. Get a suitable handle from the HPORT() function
 with or without a port name as its argument as described in the
 previous section.
 
@@ -104,23 +237,116 @@ application. Some query the status, or provide access to the hardware
 handshake signals and could be useful while actively communicating
 over an open port.
 
-    WINBASEAPI BOOL WINAPI HPORT:ClearCommBreak();
-    WINBASEAPI BOOL WINAPI HPORT:ClearCommError(PDWORD,LPCOMSTAT);
-    WINBASEAPI BOOL WINAPI HPORT:EscapeCommFunction(DWORD);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommConfig(LPCOMMCONFIG,PDWORD);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommMask(PDWORD);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommModemStatus(PDWORD);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommProperties(LPCOMMPROP);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommState(LPDCB);
-    WINBASEAPI BOOL WINAPI HPORT:GetCommTimeouts(LPCOMMTIMEOUTS);
-    WINBASEAPI BOOL WINAPI HPORT:PurgeComm(DWORD);
-    WINBASEAPI BOOL WINAPI HPORT:SetCommBreak();
-    WINBASEAPI BOOL WINAPI HPORT:SetCommConfig(LPCOMMCONFIG,DWORD);
-    WINBASEAPI BOOL WINAPI HPORT:SetCommMask(DWORD);
-    WINBASEAPI BOOL WINAPI HPORT:SetCommState(LPDCB);
-    WINBASEAPI BOOL WINAPI HPORT:SetCommTimeouts(LPCOMMTIMEOUTS);
-    WINBASEAPI BOOL WINAPI HPORT:SetupComm(DWORD,DWORD);
-    WINBASEAPI BOOL WINAPI HPORT:TransmitCommChar(char);
++win32ser.HPORT()+
+
+Create and return an HPORT object that is not currently open on any
+port.
+
++win32ser.HPORT(name)+
+
+Create and return an HPORT object that is open on the port identified
+by the string _name_.
+
++HPORT:ClearCommBreak()+
+
+Clear the BREAK condition on the port.
+
++HPORT:ClearCommError(dwordp,COMSTAT)+
+
+Clear any errors on the device, keeping track of them in the dwordp
+object and filling the COMSTAT object with status information from the
+driver.
+
++HPORT:EscapeCommFunction(code)+
+
+Execute one of several special operations identified by _code_.
+
++HPORT:GetCommConfig(COMMCONFIG,dwordp)+
+
+Get the current device configuration into the COMMCONFIG object. No
+more than the value of the dwordp bytes will be modified, and the
+actual number modified will be set into the dwordp.
+
++HPORT:GetCommMask(dwordp)+
+
+Put the current event mask into _dwordp_.
+
++HPORT:GetCommModemStatus(dwordp)+
+
+Put the current modem status into _dwordp_.
+
++HPORT:GetCommProperties(COMMPROP)+
+
+Fill a COMMPROP object with information from the device driver about
+the capabilities of the open communications port.
+
+Get a suitable COMMPROP object from +win32ser.new_COMMPROP()+
+
++HPORT:GetCommState(DCB)+
+
+Fill a DCB object with the port's current state. 
+
++HPORT:GetCommTimeouts(COMMTIMEOUTS)+
+
+Fill a COMMTIMEOUTS object with the port's current timeout
+configuration.
+
++HPORT:PurgeComm(flags)+
+
+Purge the port's buffers and pending I/O requests according to the
+value _flags_.
+
++HPORT:SetCommBreak()+
+
+Set the BREAK condition on the port.
+
++HPORT:SetCommConfig(COMMCONFIG,DWORD)+
+
+Set the current device configuration from the COMMCONFIG object. No
+more than _DWORD_ bytes will be read from the COMMCONFIG object.
+
++HPORT:SetCommMask(DWORD)+
+
+Set the port's event mask to _DWORD_.
+
++HPORT:SetCommState(DCB)+
+
+Set the port's state from the DCB object. 
+
++HPORT:SetCommTimeouts(COMMTIMEOUTS)+
+
+Set the port's timeout configuration from _COMMTIMEOUTS_.
+
++HPORT:SetupComm(dwIn,dwOut)+
+
+Suggest to the port's driver that suitable sizes for the driver's
+internal buffers would be _dwIn_ for the input buffer and _dwOut_ for
+the output buffer.
+
+Note that the driver is not obligated to pay attention to this hint,
+and for those drivers that can adjust their buffer sizes, this must
+occur after the port is open and before any actual I/O is performed.
+
++HPORT:TransmitCommChar(ch)+
+
+Transmit an out of band character on the port, specified by the first
+character of the string _ch_. The character will be dropped at the
+head of the output FIFO.
+
++HPORT:Read(len)+
+
+Read up to _len_ bytes from the port. Returns the bytes received in a
+string on success or nil on error.
+
+Note that the returned string may have length zero if no bytes are
+available within the read timeout configured, or any length up to
+_len_ if bytes are or become available before the timeout expires.
+
++HPORT:Write(buffer, intp)+
+
+Write the bytes from the string _buffer_ to the port, filling the
+value of the intp object with the number of bytes actually sent before
+the write timeout configured on the port expires.
 
 Windows Error Codes
 ~~~~~~~~~~~~~~~~~~~
@@ -130,25 +356,41 @@ language. SetLastError() is provided primarily to permit testing of
 GetLastError(), but might conceivably have some utility in a higher
 level module.
 
-    DWORD GetLastError(void)
-    void SetLastError(DWORD)
-    char *ErrorMessage(DWORD)
+Windows error codes are 32-bit unsigned values, many of which can be
+found listed in the file +winerror.h+ provided in the Windows Platform
+SDK. At a command prompt, the command +NET HELPMSG _error_+ will look
+up the error code _error_ and display a description if one is
+available. Unfortunately, there is no single, reliable source of
+descriptions of all error codes that might be found in the wild. Since
+any DLL or executable can contain a message resource, there are some
+errors (even for system components) that are not described in the
+common message table that is accessible to all applications. There is
+also a range of error codes that is explicitly set aside for
+application-specific use.
 
++win32ser.GetLastError()+
+
+Get the most recently set Windows error code for the current process
+and thread.
+
++win32ser.SetLastError(err)+
+
+Set the Windows error code for the current process
+and thread to _err_.
+
++win32ser.ErrorMessage(err)+
+
+Look up the error code _err_ in the system message table, in a default
+language using the Windows FormatMessage() function and return the
+resulting description string, if any.
 
 Message boxes, beeps, and window handles
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The API function that presents a serial port configuration dialog box
-requires that a window handle be referenced. The functions named
-Get...Window() listed below are provided to discover a suitable window
-handle. Because they were useful when testing the window handle
-functions, and might be useful in some real programs, wrappers are
+Because they might be useful in some real programs, wrappers are
 provided for MessageBeep() and MessageBox(). To make use of
 MessageBox() plausible, constant definitions are provided for
 constructing the value to pass in the uType parameter, and for
 interpreting the return value.
-
-    BOOL MessageBeep(UINT uType)
-    int MessageBox(LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 
 These functions can be used to make noises and display simple
 messages. Since MessageBox() returns a code identifying which button
@@ -157,22 +399,43 @@ was pushed, it can even be used to prompt the user in simple ways.
 NOTE: Real user interfaces should actually be built from an interface
 toolkit such as IUP or wxLua, not just as a sequence of message boxes.
 
++win32ser.MessageBeep(uType)+
+
+Make the sound associated with the type code _uType_. The _uType_
+value should be one of the Icon constants. 
+
++win32ser.MessageBox(text, caption, uType)+
+
+Display a Windows message box with the specified _text_ and _caption_,
+where the icon and specific buttons to include are specified by the
+type code _uType_. The _uType_ value should include one Icon constant
+added to at most one button constant and one default button constant.
+
+Returns a value indicating which button was clicked by the user, which
+should be one of the button ID constants.
+
 The message box type and return value constants defined include:
 
 .Icon to show and sound to play:
-+MB_ICONASTERISK+, +MB_ICONERROR+, +MB_ICONEXCLAMATION+,
-+MB_ICONHAND+, +MB_ICONINFORMATION+, +MB_ICONSTOP+, +MB_ICONWARNING+ 
++win32ser.MB_ICONASTERISK+, +win32ser.MB_ICONERROR+,
++win32ser.MB_ICONEXCLAMATION+, +win32ser.MB_ICONHAND+,
++win32ser.MB_ICONINFORMATION+, +win32ser.MB_ICONSTOP+,
++win32ser.MB_ICONWARNING+ 
 
 .Buttons to show:
-+MB_ABORTRETRYIGNORE+, +MB_CANCELTRYCONTINUE+, +MB_OK+, +MB_OKCANCEL+,
-+MB_RETRYCANCEL+, +MB_YESNO+, +MB_YESNOCANCEL+  
++win32ser.MB_ABORTRETRYIGNORE+, +win32ser.MB_CANCELTRYCONTINUE+,
++win32ser.MB_OK+, +win32ser.MB_OKCANCEL+, +win32ser.MB_RETRYCANCEL+,
++win32ser.MB_YESNO+, +win32ser.MB_YESNOCANCEL+ 
 
 .Default button:
-+MB_DEFBUTTON1+, +MB_DEFBUTTON2+, +MB_DEFBUTTON3+, +MB_DEFBUTTON4+
++win32ser.MB_DEFBUTTON1+, +win32ser.MB_DEFBUTTON2+,
++win32ser.MB_DEFBUTTON3+, +win32ser.MB_DEFBUTTON4+
 
 .Return values:
-+IDOK+, +IDCANCEL+, +IDABORT+, +IDRETRY+, +IDIGNORE+, +IDYES+, +IDNO+,
-+IDCLOSE+, +IDHELP+, +IDTRYAGAIN+, +IDCONTINUE+
++win32ser.IDOK+, +win32ser.IDCANCEL+, +win32ser.IDABORT+,
++win32ser.IDRETRY+, +win32ser.IDIGNORE+, +win32ser.IDYES+,
++win32ser.IDNO+, +win32ser.IDCLOSE+, +win32ser.IDHELP+,
++win32ser.IDTRYAGAIN+, +win32ser.IDCONTINUE+
 
 The following code fragment demonstrates use of these functions to
 make noise, display messages, and collect feedback.
@@ -181,7 +444,7 @@ make noise, display messages, and collect feedback.
 source~~~~
 require"win32ser"
 b = win32ser.MessageBeep(0)            -- Make a default noise
-b = win32ser.MessageBeep(MB_ICONERROR) -- Make the Error noise.
+b = win32ser.MessageBeep(win32ser.MB_ICONERROR) -- Make the Error noise.
 
 -- show a simple warning message with only an Ok button
 button = win32ser.MessageBox(
@@ -191,7 +454,7 @@ button = win32ser.MessageBox(
 assert(button == win32ser.MB_OK)
 
 -- ask a yes/no question showing Yes and No buttons
-button = win32ser.MessageBoxA(
+button = win32ser.MessageBox(
 	"Want to answer a question?", 
 	"Box Caption",
 	win32ser.MB_ICONINFORMATION + win32ser.MB_YESNO)
@@ -231,9 +494,9 @@ confusing behavior if they are not as expected.
 
 The correct configuration of timeout values for a port is poorly
 documented by Microsoft. For clear cases such as no timeout at all,
-the operation is relatively self-explanitory. For example, set all the
+the operation is relatively self-explanatory. For example, set all the
 timeout fields to 0 to cause all reads and writes to block until the
-exact byte couts are satisfied. This case is demonstrated by the
+exact byte counts are satisfied. This case is demonstrated by the
 following fragment:
 
 [lua]
@@ -266,7 +529,7 @@ full buffer is returned.
 
 However, the situation is more complicated if enough characters aren't
 available when the read request is made. When the request is first
-issued, the number of bytes is multipled by the
+issued, the number of bytes is multiplied by the
 ReadTotalTimeoutMultiplier and added to ReadTotalTimeoutConstant, and
 if the result is non-zero it specifies the maximum number of
 milliseconds to wait before the read request is completed with a
@@ -297,9 +560,9 @@ to MAXDWORD and ReadTotalTimeoutConstant be non-zero.
 
 When handling continuous data flows in the stead state, both appear to
 have the desired effect: reads return characters as and when they
-become available. Howver, when data flow pauses, they appear to
+become available. However, when data flow pauses, they appear to
 differ in how the last few characters that are sitting in the UART's
-receieve FIFO are handled. 
+receive FIFO are handled. 
 
 In the first setup, some small but unpredictable number of characters
 remain in the input FIFO, and they are only actually delivered in a
@@ -360,7 +623,7 @@ choice of time units is not as useful as it sounds at a glance.
 
 If write timeouts are desirable (which could be sensible in a
 flow-controlled configuration), then something like the following
-fragement will set them to a minimum of 1 ms per character plus some
+fragment will set them to a minimum of 1 ms per character plus some
 overhead:
 
 [lua]
@@ -448,9 +711,9 @@ The asciidoc a2x toolchain driver assumes that FOP is properly
 installed and available as fop.sh somewhere on the path. It is also
 sensitive to the FOP version installed, and does not work with
 versions newer than 0.20.5 or so. This is likely to actually be an
-issue with the asciidoc implementation of XSL-FO, and realy should be
-fixed in asciidoc. The workaround is to install an old version of FOP
-and live with its idiosyncracies, which include the need to make sure
+issue with the asciidoc implementation of XSL-FO, and really should be
+fixed in asciidoc. The work around is to install an old version of FOP
+and live with its idiosyncrasies, which include the need to make sure
 JAVA_HOME is defined in the environment before fop.sh is invoked.
 
 SWIG Wrapper Generator
@@ -458,9 +721,9 @@ SWIG Wrapper Generator
 SWIG provides all of the driving logic behind the construction of the
 wrapper. It allows a simple list of functions to wrap to be converted
 to C code that hides all of the messy details that glue that code to a
-hosting script language environment. For most of its targetted
+hosting script language environment. For most of its targeted
 scripting languages, the resulting file can be simply compiled and
-linked into a DLL that can be loaded at runtime by a script that wants
+linked into a DLL that can be loaded at run time by a script that wants
 to use the wrapped capabilities.
 
 The Lua Language
@@ -473,7 +736,7 @@ written, and SWIG nicely conceals all that behind its curtains.
 
 Since one significant goal of this wrapper is compatibility with Lua
 as released in the Lua Scripting for Windows package, support is in
-place in the Makefile for linkage to the "latest" C runtime DLL,
+place in the Makefile for linkage to the "latest" C run time DLL,
 MSVCR80.DLL. This also makes our wrapper compatible with the popular
 builds distributed by the LuaBinaries project. Both of these
 distributions can be found a http://www.luaforge.net/[].

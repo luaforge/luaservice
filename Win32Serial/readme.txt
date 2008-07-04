@@ -1,18 +1,16 @@
-Windows COMM API wrapper
-========================
-:Author:	Ross Berteig
-:Email:		ross@cheshireeng.com
-:Revision:	v0.01
-:Date:		June, 2008
+Readme.txt
+==========
+Ross Berteig <ross@cheshireeng.com>
+v0.02, July 2008
 
-Introduction 
------------- 
-This is a low-level wrapping of the Windows (specifically Win32)
-Communications Port API. The goal is to provide access to
-communications resources from scripting environments. The only
-targeted environment is Lua (http://www.lua.org/[]), but since SWIG
-(http://www.swig.org/[]) is used to construct the wrapper, support for
-other scripting languages is possible with only moderate effort.
+This is the file readme.txt describing the win32ser module for
+use from Lua scripts.
+
+This module is a low-level wrapping of the Windows Communications Port
+API. The goal is to provide access to communications resources from
+scripting environments. The only targeted environment is Lua, but
+since SWIG is used to construct the wrapper, support for other
+scripting languages is possible with only moderate effort.
 
 The wrapper can be easily built for Lua version 5.1 and later. It is
 probably usable with Lua 5.0 if a suitable adapter is provided to
@@ -27,7 +25,6 @@ The following is a sketchy list of things to do presented in rough
 priority order:
 
 * Finish Documentation
-* Update docs to reflect new oo HPORT class?
 * More luaunit cases to cover edges.
 * More useful constants and/or bitfield to/from sets mechanism
 * Test under IUP
@@ -40,7 +37,7 @@ priority order:
 * Support Send/Expect funcitonality with a lua module?
 
 
-Build Dependancies
+Build Dependencies
 ------------------
 The following is a sketchy list of tools I used to build this
 project from source. There may well be other ways to approach building
@@ -63,3 +60,10 @@ incompatible with the modern versions of FOP.
 * Lua Scripting for Windows
   - lua 5.1.3
   - luaunit
+
+References
+----------
+* http://msdn.microsoft.com/
+* http://www.cygwin.com/
+* http://www.lua.org/
+* http://www.swig.org/

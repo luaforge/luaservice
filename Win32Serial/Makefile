@@ -11,8 +11,11 @@ shiny:	clean
 	-rm ~*.bak
 	-rm readme.pdf
 
-.PHONY: all clean ship dirs dlls
+.PHONY: all clean ship dirs dlls docs
 
+# locate tecgraf resources in the windows folder
+# %SYSTEMDRIVE%\programs\tecgraf We assume something resembling the
+# LuaBinaries folder tree is in ...\tecgraf\lua5.1
 TECGRAF=`cygpath $(SYSTEMDRIVE)`/programs/tecgraf
 LUABASE=$(TECGRAF)/lua5.1
 LUAINC=$(LUABASE)/include
