@@ -52,19 +52,19 @@ serial_msvcr80/win32ser.dll: sermod_wrap_lua.o Makefile
 ship: shipsrc shipbin
 
 shipsrc:
-	zip -8 serial-src readme.txt sermod.i msgbox.i Makefile t/*.lua samples/*.lua -x '*.bak'
+	zip -8 serial-src readme.txt sermod.i msgbox.i Makefile doc/*.txt t/*.lua samples/*.lua -x '*.bak'
 
-shipbin: all docs
-	zip -8 -j serial-win32-vc8 readme.txt doc/reference.pdf serial_msvcr80/ser.dll
-	zip -8 -j serial-win32-vc6 readme.txt doc/reference.pdf serial_msvcrt/ser.dll
+shipbin: tests docs
+	zip -8 -j serial-win32-vc8 readme.txt doc/reference.pdf serial_msvcr80/win32ser.dll samples/*.lua
+	zip -8 -j serial-win32-vc6 readme.txt doc/reference.pdf serial_msvcrt/win32ser.dll samples/*.lua
 
 docs: readme.pdf doc/reference.pdf
 
 readme.pdf: readme.txt
 	a2x -f pdf --xsltproc-opts='--stringparam paper.type USletter' readme.txt
 
-doc/reference.pdf: doc/reference.txt
-	cd doc && a2x -f pdf --asciidoc-opts=--unsafe --xsltproc-opts='--stringparam paper.type USletter' reference.txt
+doc/reference.pdf: doc/reference.txt samples/*.lua
+	cd doc && a2x -f pdf --doctype='book' --asciidoc-opts=--unsafe --xsltproc-opts='--stringparam paper.type USletter' reference.txt
 
 
 inst-lfw: all

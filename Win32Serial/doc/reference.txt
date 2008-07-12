@@ -1,12 +1,10 @@
 Windows COMM API wrapper
 ========================
-:Author:	Ross Berteig
-:Email:		ross@cheshireeng.com
-:Revision:	v0.02
-:Date:		July, 2008
+Ross Berteig <ross@cheshireeng.com>
+v0.0.2, July 2008
 
-Introduction 
------------- 
+Preface 
+------- 
 This is a low-level wrapping of the Windows (specifically Win32)
 Communications Port API. The goal is to provide access to
 communications resources from scripting environments. The only
@@ -15,12 +13,15 @@ since SWIG (http://www.swig.org/[]) is used to construct the wrapper,
 support for other scripting languages is possible with only moderate
 effort.
 
-Functions wrapped and minimally tested
---------------------------------------
+This effort was inspired by the desire of the Lua scripting for
+Windows project to have a usable serial port wrapper.
+
+Module Functions and Methods 
+----------------------------
 The following sections sketch out what functions are specifically
 provided by this wrapper. For actual documentation of the API
-functions, the official Platform SDK documentation should be
-consulted.
+functions, the official Windows Platform SDK documentation
+should be consulted.
 
 Comm Structures and Types
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -642,10 +643,24 @@ end
 
 source~~~~
 
-Samples
-~~~~~~~
+Sample Code
+-----------
 
-.+samples/loopback.lua+
++samples/nbread.lua+
+~~~~~~~~~~~~~~~~~~~~
+This code demonstrates non-blocking reads. It assumes that a source of
+characters at a 9600 baud, 8-bit, no parity is connected to COM2 that
+can send a 'Q' character at will. It loops, reading from the port,
+keeping some counts, and writing to both the console and back to the
+port.
+
+[lua]
+source~~~~
+include::../samples/nbread.lua[]
+source~~~~
+
++samples/loopback.lua+
+~~~~~~~~~~~~~~~~~~~~~~
 This code assumes that COM1 and COM2 are connected by a null-modem
 cable. It doesn't use hardware handshakes so only Tx, Rx, and GND need
 be wired. However, if DTR and DSR are also wired, then it demonstrates
@@ -657,7 +672,8 @@ source~~~~
 include::../samples/loopback.lua[]
 source~~~~
 
-.+samples/msg.lua+
++samples/msg.lua+
+~~~~~~~~~~~~~~~~~
 This code demonstrates the use of MessageBox().
 
 [lua]
@@ -666,25 +682,76 @@ include::../samples/msg.lua[]
 source~~~~
 
 
-.+samples/props.lua+
++samples/props.lua+
+~~~~~~~~~~~~~~~~~~~
 This code demonstrates the values returned from GetCommProps().
 
+[lua]
+source~~~~
+include::../samples/props.lua[]
+source~~~~
 
-Tools
------
++samples/demodcb.lua+
+~~~~~~~~~~~~~~~~~~~~~
+This code demonstrates building DCB and COMMTIMEOUTS structures from
+mode strings. 
+
+[lua]
+source~~~~
+include::../samples/demodcb.lua[]
+source~~~~
+
++samples/configdlg.lua+
+~~~~~~~~~~~~~~~~~~~~~~~
+This code demonstrates how to use the +CommConfigDialog()+ function.
+
+[lua]
+source~~~~
+include::../samples/configdlg.lua[]
+source~~~~
+
+
+Building the Module
+-------------------
+The Windows COMM API wrapper was built under Cygwin using GCC and
+SWIG. Unzip the source archive into a suitable folder, then issue the
+following commands:
+
+	make
+	make tests
+	make docs
+
+The documentation is built in the +doc+ folder, and two versions of the
+Lua module DLL are found in the +serial-msvcrt+ and +serial-msvc80+
+folders, each linked against the corresponding C runtime DLL. The
+other interesting folders include +t+ which contains the test cases
+and +samples+ which contains sample code.
+
+The command
+
+	make ship
+
+may be used to build and package the released ZIP files.
+
+
+Development Tools
+~~~~~~~~~~~~~~~~~
 The following tools have been used for development.
 
 * Cygwin with developer tools
   - GCC
   - SWIG
+  - make
+  - zip
 * Lua
+  - luaunit module
 * asciidoc from a Cygwin package
   - DocBook from a Cygwin package
   - FOP from Apache using JRE1.6 from Sun
   - source-highlight from GnuWin32
 
 Asciidoc
-~~~~~~~~
+^^^^^^^^
 This documentation has been prepared with asciidoc, and specifically
 with the a2x driver script that combines asciidoc with the DocBook XSL
 templates to produce XSL-FO for processing with Apache FOP to get
@@ -716,19 +783,19 @@ fixed in asciidoc. The work around is to install an old version of FOP
 and live with its idiosyncrasies, which include the need to make sure
 JAVA_HOME is defined in the environment before fop.sh is invoked.
 
-SWIG Wrapper Generator
-~~~~~~~~~~~~~~~~~~~~~~
-SWIG provides all of the driving logic behind the construction of the
-wrapper. It allows a simple list of functions to wrap to be converted
-to C code that hides all of the messy details that glue that code to a
-hosting script language environment. For most of its targeted
-scripting languages, the resulting file can be simply compiled and
-linked into a DLL that can be loaded at run time by a script that wants
-to use the wrapped capabilities.
+SWIG
+^^^^
+The SWIG Wrapper Generator provides all of the driving logic behind
+the construction of the wrapper. It allows a simple list of functions
+to wrap to be converted to C code that hides all of the messy details
+that glue that code to a hosting script language environment. For most
+of its targeted scripting languages, the resulting file can be simply
+compiled and linked into a DLL that can be loaded at run time by a
+script that wants to use the wrapped capabilities.
 
-The Lua Language
-~~~~~~~~~~~~~~~~
-Lua is a nice, powerful, small, and easy to use language that is
+Lua
+^^^
+The Lua language is a nice, powerful, small, and easy to use language that is
 generally easily glued to C code that was originally designed to be
 called from Lua. However, gluing Lua to an arbitrary API would
 ordinarily require a lot of boiler-plate and repetitive code to be
@@ -736,7 +803,7 @@ written, and SWIG nicely conceals all that behind its curtains.
 
 Since one significant goal of this wrapper is compatibility with Lua
 as released in the Lua Scripting for Windows package, support is in
-place in the Makefile for linkage to the "latest" C run time DLL,
+place in the Makefile for linkage to the matching C run time DLL,
 MSVCR80.DLL. This also makes our wrapper compatible with the popular
 builds distributed by the LuaBinaries project. Both of these
 distributions can be found a http://www.luaforge.net/[].
